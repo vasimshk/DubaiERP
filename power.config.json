@@ -1,0 +1,106 @@
+{
+  "version": "1.0",
+  "appId": "27d120bb-a9ca-4515-b2f2-54a2bc73025c",
+  "appDisplayName": "Dubai ERP - Code App",
+  "region": "prod",
+  "appType": "CodeApp",
+  "environmentId": "cb06253d-941d-ea50-b801-87828be42fd5",
+  "description": " ",
+  "buildPath": "./dist",
+  "buildEntryPoint": "index.html",
+  "localAppUrl": "http://localhost:3000",
+  "logoPath": "Default",
+  "connectionReferences": {},
+  "databaseReferences": {
+    "default.cds": {
+      "dataSources": {
+        "equipment": {
+          "entitySetName": "craft_equipments",
+          "logicalName": "craft_equipment",
+          "isHidden": false
+        },
+        "client": {
+          "entitySetName": "craft_clients",
+          "logicalName": "craft_client",
+          "isHidden": false
+        },
+        "project": {
+          "entitySetName": "craft_projects",
+          "logicalName": "craft_project",
+          "isHidden": false
+        },
+        "employees": {
+          "entitySetName": "craft_employees",
+          "logicalName": "craft_employee",
+          "isHidden": false
+        },
+        "contractor": {
+          "entitySetName": "craft_contractors",
+          "logicalName": "craft_contractor",
+          "isHidden": false
+        },
+        "supplier": {
+          "entitySetName": "craft_suppliers",
+          "logicalName": "craft_supplier",
+          "isHidden": false
+        },
+        "contract": {
+          "entitySetName": "craft_contract1s",
+          "logicalName": "craft_contract1",
+          "isHidden": false
+        },
+        "dailysitereports": {
+          "entitySetName": "craft_dailysitereports",
+          "logicalName": "craft_dailysitereport",
+          "isHidden": false
+        },
+        "inspections": {
+          "entitySetName": "craft_inspections",
+          "logicalName": "craft_inspection",
+          "isHidden": false
+        },
+        "paymentapplications": {
+          "entitySetName": "craft_paymentapplications",
+          "logicalName": "craft_paymentapplication",
+          "isHidden": false
+        },
+        "permitapprovals": {
+          "entitySetName": "craft_permitapprovals",
+          "logicalName": "craft_permitapproval",
+          "isHidden": false
+        },
+        "projectdocument": {
+          "entitySetName": "craft_projectdocuments",
+          "logicalName": "craft_projectdocument",
+          "isHidden": false
+        },
+        "projectphase": {
+          "entitySetName": "craft_projectphases",
+          "logicalName": "craft_projectphase",
+          "isHidden": false
+        },
+        "purchaseorder": {
+          "entitySetName": "craft_purchaseorders",
+          "logicalName": "craft_purchaseorder",
+          "isHidden": false
+        },
+        "safetyincidents": {
+          "entitySetName": "craft_safetyincidents",
+          "logicalName": "craft_safetyincident",
+          "isHidden": false
+        },
+        "variationorder": {
+          "entitySetName": "craft_variationorders",
+          "logicalName": "craft_variationorder",
+          "isHidden": false
+        },
+        "workpackages": {
+          "entitySetName": "craft_workpackages",
+          "logicalName": "craft_workpackage",
+          "isHidden": false
+        }
+      },
+      "environmentVariableName": ""
+    }
+  }
+}
