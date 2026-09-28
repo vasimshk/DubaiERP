@@ -4,11 +4,14 @@ import {
 } from './generated/models/Craft_clientsModel'
 import { Craft_projectscraft_healthstatus } from './generated/models/Craft_projectsModel'
 import type { Craft_clients } from './generated/models/Craft_clientsModel'
+import type { Craft_permitapprovals } from './generated/models/Craft_permitapprovalsModel'
+import type { Craft_projectphases } from './generated/models/Craft_projectphasesModel'
 import type { Craft_projects } from './generated/models/Craft_projectsModel'
 
 type ClientProjectViewProps = {
   clients: Craft_clients[]
   projects: Craft_projects[]
+  projectPhases?: Craft_projectphases[]
   onOpenProjects: (clientId?: string) => void
 }
 
@@ -19,6 +22,16 @@ const money = (value?: number) => value == null ? '-' : `AED ${value.toLocaleStr
 const date = (value?: string) => value ? new Date(value).toLocaleDateString() : '-'
 const clientName = (client?: Craft_clients) => client?.craft_clientname || client?.craft_clientid1 || client?.craft_clientid || 'Unassigned'
 const projectClientId = (project: Craft_projects) => project._craft_client_value || project.craft_clientid
+const phaseBelongsToProject = (phase: Craft_projectphases, project: Craft_projects) => {
+  const phaseProjectIds = [phase.craft_projectidentifier, phase._craft_project_value].filter(Boolean)
+  const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
+  return phaseProjectIds.some((phaseProjectId) => projectIds.includes(phaseProjectId))
+}
+const permitBelongsToProject = (permit: Craft_permitapprovals, project: Craft_projects) => {
+  const permitProjectIds = [permit.craft_projectid, permit._craft_project_value].filter(Boolean)
+  const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
+  return permitProjectIds.some((permitProjectId) => projectIds.includes(permitProjectId))
+}
 
 export function ClientPage({ clients, projects, onOpenProjects }: ClientProjectViewProps) {
   const [search, setSearch] = useState('')
@@ -49,15 +62,243 @@ export function ClientPage({ clients, projects, onOpenProjects }: ClientProjectV
         <section className="table-panel entity-table-panel">
           {filteredClients.length === 0 ? <p className="table-message">No clients match your search.</p> : <div className="table-scroll"><table><thead><tr><th>Client</th><th>Type</th><th>Contact</th><th>Status</th><th>Projects</th><th>Lifetime value</th></tr></thead><tbody>{filteredClients.map((client) => <tr className={selectedClient?.craft_clientid === client.craft_clientid ? 'selected-row' : ''} key={client.craft_clientid} onClick={() => setSelectedClient(client)}><td className="equipment-name">{clientName(client)}<small>{client.craft_clientid1 || client.craft_clientid}</small></td><td>{client.craft_clienttype || '-'}</td><td><strong>{client.craft_contactperson || 'No contact'}</strong><small>{client.craft_contactemail || 'No email'}</small></td><td><span className={`status status-${clientStatus(client).toLowerCase().replaceAll(' ', '-')}`}>{clientStatus(client)}</span></td><td>{client.craft_activeprojectscount ?? projects.filter((project) => projectClientId(project) === client.craft_clientid).length}</td><td>{money(client.craft_lifetimerevenue)}</td></tr>)}</tbody></table></div>}
         </section>
-        <aside className="details-panel entity-details-panel">{selectedClient ? <div className="details-content"><div className="panel-heading"><div><p className="eyebrow">Client details</p><h2>{clientName(selectedClient)}</h2></div><span className={`status status-${clientStatus(selectedClient).toLowerCase().replaceAll(' ', '-')}`}>{clientStatus(selectedClient)}</span></div><dl className="details-list"><div><dt>Client type</dt><dd>{selectedClient.craft_clienttype || '-'}</dd></div><div><dt>Contact person</dt><dd>{selectedClient.craft_contactperson || '-'}</dd></div><div><dt>Email</dt><dd>{selectedClient.craft_contactemail || '-'}</dd></div><div><dt>Phone</dt><dd>{selectedClient.craft_contactphone || '-'}</dd></div><div><dt>Address</dt><dd>{selectedClient.craft_clientaddress || '-'}</dd></div><div><dt>Payment terms</dt><dd>{selectedClient.craft_paymentterms || '-'}</dd></div><div><dt>Credit limit</dt><dd>{money(selectedClient.craft_creditlimitaed)}</dd></div><div><dt>Last activity</dt><dd>{date(selectedClient.craft_lastactivitydate)}</dd></div></dl><div className="related-projects"><div className="related-heading"><h3>Related projects</h3><button className="text-button" type="button" onClick={() => onOpenProjects(selectedClient.craft_clientid)}>Open all</button></div>{projectsForClient.length > 0 ? projectsForClient.slice(0, 4).map((project) => <button className="related-project" type="button" key={project.craft_projectid} onClick={() => onOpenProjects(selectedClient.craft_clientid)}><span>{project.craft_projectname || project.craft_projectid1 || project.craft_projectid}</span><small>{healthStatus(project)} · {project.craft_location || 'No location'}</small></button>) : <p className="empty-widget">No projects connected to this client.</p>}</div></div> : <div className="empty-details"><strong>Select a client</strong><span>Client details and related projects will appear here.</span></div>}</aside>
+        <aside className="details-panel entity-details-panel">{selectedClient ? <div className="details-content"><div className="panel-heading"><div><p className="eyebrow">Client details</p><h2>{clientName(selectedClient)}</h2></div><span className={`status status-${clientStatus(selectedClient).toLowerCase().replaceAll(' ', '-')}`}>{clientStatus(selectedClient)}</span></div><dl className="details-list"><div><dt>Client type</dt><dd>{selectedClient.craft_clienttype || '-'}</dd></div><div><dt>Contact person</dt><dd>{selectedClient.craft_contactperson || '-'}</dd></div><div><dt>Email</dt><dd>{selectedClient.craft_contactemail || '-'}</dd></div><div><dt>Phone</dt><dd>{selectedClient.craft_contactphone || '-'}</dd></div><div><dt>Address</dt><dd>{selectedClient.craft_clientaddress || '-'}</dd></div><div><dt>Payment terms</dt><dd>{selectedClient.craft_paymentterms || '-'}</dd></div><div><dt>Credit limit</dt><dd>{money(selectedClient.craft_creditlimitaed)}</dd></div><div><dt>Last activity</dt><dd>{date(selectedClient.craft_lastactivitydate)}</dd></div></dl><div className="related-projects"><div className="related-heading"><h3>Related projects</h3><button className="text-button" type="button" onClick={() => onOpenProjects(selectedClient.craft_clientid)}>Open all</button></div><div className="related-record-list">{projectsForClient.length > 0 ? projectsForClient.map((project) => <button className="related-project" type="button" key={project.craft_projectid} onClick={() => onOpenProjects(selectedClient.craft_clientid)}><span>{project.craft_projectname || project.craft_projectid1 || project.craft_projectid}</span><small>{healthStatus(project)} · {project.craft_location || 'No location'}</small></button>) : <p className="empty-widget">No projects connected to this client.</p>}</div></div></div> : <div className="empty-details"><strong>Select a client</strong><span>Client details and related projects will appear here.</span></div>}</aside>
       </div>
     </div>
   )
 }
 
-export function ProjectsPage({ clients, projects, onOpenProjects, selectedClientId = 'All clients' }: ClientProjectViewProps & { selectedClientId?: string }) {
+export function ProjectPhasesPage({ clients, projects, projectPhases, selectedPhaseId, onOpenProject }: { clients: Craft_clients[]; projects: Craft_projects[]; projectPhases: Craft_projectphases[]; selectedPhaseId?: string | null; onOpenProject?: (project: Craft_projects) => void }) {
+  const [search, setSearch] = useState('')
+  const clientMap = useMemo(() => new Map(clients.map((client) => [client.craft_clientid, client])), [clients])
+  const filteredPhases = useMemo(() => {
+    const query = search.toLowerCase()
+    return projectPhases.filter((phase) => {
+      const relatedProject = projects.find((project) =>
+        (project.craft_projectid === phase.craft_projectidentifier || project.craft_projectid1 === phase.craft_projectidentifier || project.craft_projectid === phase._craft_project_value || project.craft_projectid1 === phase._craft_project_value)
+      )
+      const relatedClient = relatedProject ? clientMap.get(projectClientId(relatedProject) ?? '') : undefined
+      return [phase.craft_phasename, phase.craft_phaseidentifier, phase.craft_projectphaseid, relatedProject?.craft_projectname, relatedProject?.craft_projectid1, relatedClient ? clientName(relatedClient) : undefined].some((value) => value?.toLowerCase().includes(query))
+    })
+  }, [clientMap, projectPhases, projects, search])
+
+  const [selectedPhase, setSelectedPhase] = useState<Craft_projectphases | null>(null)
+
+  useEffect(() => {
+    if (filteredPhases.length === 0) {
+      setSelectedPhase(null)
+      return
+    }
+
+    if (selectedPhaseId) {
+      const matching = filteredPhases.find((phase) => phase.craft_projectphaseid === selectedPhaseId)
+      if (matching) {
+        setSelectedPhase(matching)
+        return
+      }
+    }
+
+    setSelectedPhase((current) => {
+      if (current && filteredPhases.some((phase) => phase.craft_projectphaseid === current.craft_projectphaseid)) {
+        return current
+      }
+      return filteredPhases[0]
+    })
+  }, [filteredPhases, selectedPhaseId])
+
+  const selectedPhaseProject = selectedPhase ? projects.find((project) => phaseBelongsToProject(selectedPhase, project)) : undefined
+
+  return (
+    <div className="entity-view">
+      <header className="entity-header">
+        <div><p className="eyebrow">Dubai ERP / Delivery</p><h1>Project phases</h1><p className="subtitle">Review phase progress, dates, and project ownership across the portfolio.</p></div>
+      </header>
+
+      <section className="entity-toolbar"><label className="search-field"><span>Search phases</span><input type="search" placeholder="Search phase, project, client..." value={search} onChange={(event) => setSearch(event.target.value)} /></label><span className="result-count">Showing {filteredPhases.length} records</span></section>
+
+      <div className="entity-content-grid">
+        <section className="table-panel entity-project-table">
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Phase</th>
+                  <th>Project</th>
+                  <th>Client</th>
+                  <th>Status</th>
+                  <th>Progress</th>
+                  <th>End date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPhases.map((phase) => {
+                  const relatedProject = projects.find((project) =>
+                    (project.craft_projectid === phase.craft_projectidentifier || project.craft_projectid1 === phase.craft_projectidentifier || project.craft_projectid === phase._craft_project_value || project.craft_projectid1 === phase._craft_project_value)
+                  )
+                  const relatedClient = relatedProject ? clientMap.get(projectClientId(relatedProject) ?? '') : undefined
+                  return (
+                    <tr className={selectedPhase?.craft_projectphaseid === phase.craft_projectphaseid ? 'selected-row' : ''} key={phase.craft_projectphaseid} onClick={() => setSelectedPhase(phase)}>
+                      <td className="equipment-name">{phase.craft_phasename || phase.craft_phaseidentifier || phase.craft_projectphaseid}<small>{phase.craft_projectphaseid}</small></td>
+                      <td>{relatedProject?.craft_projectname || relatedProject?.craft_projectid1 || relatedProject?.craft_projectid || '-'}</td>
+                      <td>{relatedClient ? clientName(relatedClient) : 'Unassigned'}</td>
+                      <td><span className={`status status-${(phase.craft_phasestatusname || 'in-progress').toLowerCase().replaceAll(' ', '-')}`}>{phase.craft_phasestatusname || 'In progress'}</span></td>
+                      <td><div className="completion-cell"><span>{phase.craft_progresspercentage ?? 0}%</span><i><b style={{ width: `${Math.min(phase.craft_progresspercentage ?? 0, 100)}%` }} /></i></div></td>
+                      <td>{date(phase.craft_plannedenddate)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <aside className="details-panel entity-details-panel">
+          {selectedPhase ? (
+            <div className="details-content">
+              <div className="panel-heading">
+                <div><p className="eyebrow">Project phase details</p><h2>{selectedPhase.craft_phasename || selectedPhase.craft_phaseidentifier || selectedPhase.craft_projectphaseid}</h2></div>
+                <span className={`status status-${(selectedPhase.craft_phasestatusname || 'in-progress').toLowerCase().replaceAll(' ', '-')}`}>{selectedPhase.craft_phasestatusname || 'In progress'}</span>
+              </div>
+              <dl className="details-list">
+                <div><dt>Phase ID</dt><dd>{selectedPhase.craft_phaseidentifier || selectedPhase.craft_projectphaseid}</dd></div>
+                <div><dt>Progress</dt><dd>{selectedPhase.craft_progresspercentage ?? 0}%</dd></div>
+                <div><dt>Budget</dt><dd>{money(selectedPhase.craft_budgetaed)}</dd></div>
+                <div><dt>Planned start</dt><dd>{date(selectedPhase.craft_plannedstartdate)}</dd></div>
+                <div><dt>Planned end</dt><dd>{date(selectedPhase.craft_plannedenddate)}</dd></div>
+                <div><dt>Actual start</dt><dd>{date(selectedPhase.craft_actualstartdate)}</dd></div>
+                <div><dt>Actual end</dt><dd>{date(selectedPhase.craft_actualenddate)}</dd></div>
+                <div><dt>Internal notes</dt><dd>{selectedPhase.craft_internalnotes || '-'}</dd></div>
+              </dl>
+              <section className="related-record-details">
+                <p className="eyebrow">Related project</p>
+                {selectedPhaseProject ? (
+                  <>
+                    <button className="related-project related-project-link" type="button" onClick={() => onOpenProject?.(selectedPhaseProject)}>
+                      <span>{selectedPhaseProject.craft_projectname || selectedPhaseProject.craft_projectid1 || selectedPhaseProject.craft_projectid}</span>
+                      <small>Open project record</small>
+                    </button>
+                    <dl className="details-list">
+                      <div><dt>Client</dt><dd>{clientName(clients.find((client) => projectClientId(selectedPhaseProject) === client.craft_clientid))}</dd></div>
+                      <div><dt>Location</dt><dd>{selectedPhaseProject.craft_location || '-'}</dd></div>
+                      <div><dt>Health</dt><dd>{healthStatus(selectedPhaseProject)}</dd></div>
+                      <div><dt>Completion</dt><dd>{selectedPhaseProject.craft_completionpercentage ?? 0}%</dd></div>
+                    </dl>
+                  </>
+                ) : <p className="empty-widget">No related project record found.</p>}
+              </section>
+            </div>
+          ) : (
+            <div className="empty-details"><strong>Select a project phase</strong><span>Phase details will appear here.</span></div>
+          )}
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+export function PermitApprovalsPage({ clients, projects, permitApprovals, selectedPermitId, onOpenProject }: { clients: Craft_clients[]; projects: Craft_projects[]; permitApprovals: Craft_permitapprovals[]; selectedPermitId?: string | null; onOpenProject?: (project: Craft_projects) => void }) {
+  const [search, setSearch] = useState('')
+  const filteredPermits = useMemo(() => {
+    const query = search.toLowerCase()
+    return permitApprovals.filter((permit) => {
+      const project = projects.find((candidate) => permitBelongsToProject(permit, candidate))
+      return [permit.craft_permitid1, permit.craft_permittypename, permit.craft_statusname, permit.craft_referencenumber, project?.craft_projectname, project?.craft_projectid1]
+        .some((value) => value?.toLowerCase().includes(query))
+    })
+  }, [permitApprovals, projects, search])
+  const [selectedPermit, setSelectedPermit] = useState<Craft_permitapprovals | null>(null)
+
+  useEffect(() => {
+    if (filteredPermits.length === 0) {
+      setSelectedPermit(null)
+      return
+    }
+
+    const matchingPermit = selectedPermitId
+      ? filteredPermits.find((permit) => permit.craft_permitapprovalid === selectedPermitId)
+      : undefined
+    setSelectedPermit((current) => matchingPermit ?? (current && filteredPermits.some((permit) => permit.craft_permitapprovalid === current.craft_permitapprovalid) ? current : filteredPermits[0]))
+  }, [filteredPermits, selectedPermitId])
+
+  const selectedPermitProject = selectedPermit ? projects.find((project) => permitBelongsToProject(selectedPermit, project)) : undefined
+
+  return (
+    <div className="entity-view">
+      <header className="entity-header">
+        <div><p className="eyebrow">Dubai ERP / Compliance</p><h1>Permit Approvals</h1><p className="subtitle">Review permit status, validity, fees, and related project ownership.</p></div>
+      </header>
+      <section className="entity-toolbar">
+        <label className="search-field"><span>Search permits</span><input type="search" placeholder="Search permit, reference, project..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <span className="result-count">Showing {filteredPermits.length} records</span>
+      </section>
+      <div className="entity-content-grid">
+        <section className="table-panel entity-project-table">
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Permit</th><th>Type</th><th>Project</th><th>Status</th><th>Expiry date</th></tr></thead>
+              <tbody>
+                {filteredPermits.map((permit) => {
+                  const project = projects.find((candidate) => permitBelongsToProject(permit, candidate))
+                  return (
+                    <tr className={selectedPermit?.craft_permitapprovalid === permit.craft_permitapprovalid ? 'selected-row' : ''} key={permit.craft_permitapprovalid} onClick={() => setSelectedPermit(permit)}>
+                      <td className="equipment-name">{permit.craft_permitid1 || permit.craft_permitapprovalid}<small>{permit.craft_referencenumber || permit.craft_permitapprovalid}</small></td>
+                      <td>{permit.craft_permittypename || 'Permit'}</td>
+                      <td>{project?.craft_projectname || project?.craft_projectid1 || project?.craft_projectid || '-'}</td>
+                      <td><span className={`status status-${(permit.craft_statusname || 'unknown').toLowerCase().replaceAll(' ', '-')}`}>{permit.craft_statusname || 'Unknown'}</span></td>
+                      <td>{date(permit.craft_expirydate)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {filteredPermits.length === 0 && <p className="table-message">No permit approvals match your search.</p>}
+        </section>
+        <aside className="details-panel entity-details-panel">
+          {selectedPermit ? (
+            <div className="details-content">
+              <div className="panel-heading">
+                <div><p className="eyebrow">Permit details</p><h2>{selectedPermit.craft_permitid1 || selectedPermit.craft_permittypename || selectedPermit.craft_permitapprovalid}</h2></div>
+                <span className={`status status-${(selectedPermit.craft_statusname || 'unknown').toLowerCase().replaceAll(' ', '-')}`}>{selectedPermit.craft_statusname || 'Unknown'}</span>
+              </div>
+              <dl className="details-list">
+                <div><dt>Type</dt><dd>{selectedPermit.craft_permittypename || '-'}</dd></div>
+                <div><dt>Reference</dt><dd>{selectedPermit.craft_referencenumber || '-'}</dd></div>
+                <div><dt>Application date</dt><dd>{date(selectedPermit.craft_applicationdate)}</dd></div>
+                <div><dt>Issue date</dt><dd>{date(selectedPermit.craft_issuedate)}</dd></div>
+                <div><dt>Expiry date</dt><dd>{date(selectedPermit.craft_expirydate)}</dd></div>
+                <div><dt>Fees</dt><dd>{money(selectedPermit.craft_feesaed)}</dd></div>
+                <div><dt>Remarks</dt><dd>{selectedPermit.craft_remarks || '-'}</dd></div>
+              </dl>
+              <section className="related-record-details">
+                <p className="eyebrow">Related project</p>
+                {selectedPermitProject ? (
+                  <>
+                    <button className="related-project related-project-link" type="button" onClick={() => onOpenProject?.(selectedPermitProject)}>
+                      <span>{selectedPermitProject.craft_projectname || selectedPermitProject.craft_projectid1 || selectedPermitProject.craft_projectid}</span>
+                      <small>Open project record</small>
+                    </button>
+                    <dl className="details-list">
+                      <div><dt>Client</dt><dd>{clientName(clients.find((client) => projectClientId(selectedPermitProject) === client.craft_clientid))}</dd></div>
+                      <div><dt>Location</dt><dd>{selectedPermitProject.craft_location || '-'}</dd></div>
+                      <div><dt>Health</dt><dd>{healthStatus(selectedPermitProject)}</dd></div>
+                      <div><dt>Completion</dt><dd>{selectedPermitProject.craft_completionpercentage ?? 0}%</dd></div>
+                    </dl>
+                  </>
+                ) : <p className="empty-widget">No related project record found.</p>}
+              </section>
+            </div>
+          ) : <div className="empty-details"><strong>Select a permit approval</strong><span>Permit and project details will appear here.</span></div>}
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void }) {
   const [search, setSearch] = useState('')
   const [clientFilter, setClientFilter] = useState(selectedClientId)
+  const [selectedProject, setSelectedProject] = useState<Craft_projects | null>(null)
+  const [selectedPhase, setSelectedPhase] = useState<Craft_projectphases | null>(null)
   useEffect(() => {
     setClientFilter(selectedClientId)
   }, [selectedClientId])
@@ -70,17 +311,124 @@ export function ProjectsPage({ clients, projects, onOpenProjects, selectedClient
       return (clientFilter === 'All clients' || projectClientId(project) === clientFilter) && [project.craft_projectname, project.craft_projectid1, project.craft_location, project.craft_projecttype, clientName(relatedClient)].some((value) => value?.toLowerCase().includes(query))
     })
   }, [clientFilter, clientMap, projects, search])
+
+  useEffect(() => {
+    if (filteredProjects.length === 0) {
+      setSelectedProject(null)
+      setSelectedPhase(null)
+      return
+    }
+
+    setSelectedProject((current) => {
+      const requestedProject = selectedProjectId ? filteredProjects.find((project) => project.craft_projectid === selectedProjectId) : undefined
+      if (requestedProject) {
+        return requestedProject
+      }
+      if (current && filteredProjects.some((project) => project.craft_projectid === current.craft_projectid)) {
+        return current
+      }
+      return filteredProjects[0]
+    })
+  }, [filteredProjects, selectedProjectId])
+
+  useEffect(() => {
+    if (!selectedProject) {
+      setSelectedPhase(null)
+      return
+    }
+
+    const projectPhaseIds = projectPhases
+      .filter((phase) => phaseBelongsToProject(phase, selectedProject))
+      .map((phase) => phase.craft_projectphaseid)
+
+    setSelectedPhase((current) => {
+      if (current && projectPhaseIds.includes(current.craft_projectphaseid)) {
+        return current
+      }
+      return projectPhaseIds.length > 0 ? projectPhases.find((phase) => phase.craft_projectphaseid === projectPhaseIds[0]) ?? null : null
+    })
+  }, [projectPhases, selectedProject])
+
   const green = filteredProjects.filter((project) => healthStatus(project) === 'Green').length
   const contractValue = filteredProjects.reduce((total, project) => total + (project.craft_contractvalueaed ?? 0), 0)
   const averageCompletion = filteredProjects.length ? Math.round(filteredProjects.reduce((total, project) => total + (project.craft_completionpercentage ?? 0), 0) / filteredProjects.length) : 0
   const clientProjects = projects.filter((project) => projectClientId(project))
+  const relatedPhases = selectedProject ? projectPhases.filter((phase) => phaseBelongsToProject(phase, selectedProject)) : []
+  const relatedPermitApprovals = selectedProject ? permitApprovals.filter((permit) => permitBelongsToProject(permit, selectedProject)) : []
 
   return (
     <div className="entity-view">
       <header className="entity-header"><div><p className="eyebrow">Dubai ERP / Delivery</p><h1>Project portfolio</h1><p className="subtitle">Track project health, completion, contract value, and client ownership.</p></div><button className="primary-button" type="button" onClick={() => onOpenProjects()}>Refresh portfolio</button></header>
       <section className="metric-grid entity-metrics"><article className="metric-card metric-card-primary"><span>Total projects</span><strong>{filteredProjects.length}</strong><small>In current view</small></article><article className="metric-card"><span>Green health</span><strong>{green}</strong><small className="metric-positive">On track</small></article><article className="metric-card"><span>Average completion</span><strong>{averageCompletion}%</strong><small>Across selected projects</small></article><article className="metric-card"><span>Contract value</span><strong>{money(contractValue)}</strong><small>{clientProjects.length} client-linked projects</small></article></section>
       <section className="entity-toolbar"><label className="search-field"><span>Search projects</span><input type="search" placeholder="Search project, client, location..." value={search} onChange={(event) => setSearch(event.target.value)} /></label><label className="entity-filter">Client<select value={clientFilter} onChange={(event) => setClientFilter(event.target.value)}><option>All clients</option>{clients.map((client) => <option value={client.craft_clientid} key={client.craft_clientid}>{clientName(client)}</option>)}</select></label><span className="result-count">Showing {filteredProjects.length} records</span></section>
-      <section className="table-panel entity-project-table"><div className="table-scroll"><table><thead><tr><th>Project</th><th>Client</th><th>Location</th><th>Health</th><th>Completion</th><th>Contract value</th><th>End date</th></tr></thead><tbody>{filteredProjects.map((project) => <tr key={project.craft_projectid}><td className="equipment-name">{project.craft_projectname || project.craft_projectid1 || project.craft_projectid}<small>{project.craft_projecttype || 'Project'}</small></td><td>{clientName(clientMap.get(projectClientId(project) ?? ''))}</td><td>{project.craft_location || '-'}</td><td><span className={`status status-${healthStatus(project).toLowerCase()}`}>{healthStatus(project)}</span></td><td><div className="completion-cell"><span>{project.craft_completionpercentage ?? 0}%</span><i><b style={{ width: `${Math.min(project.craft_completionpercentage ?? 0, 100)}%` }} /></i></div></td><td>{money(project.craft_contractvalueaed)}</td><td>{date(project.craft_enddate)}</td></tr>)}</tbody></table></div>{filteredProjects.length === 0 && <p className="table-message">No projects match the selected filters.</p>}</section>
+      <div className="entity-content-grid">
+        <section className="table-panel entity-project-table"><div className="table-scroll"><table><thead><tr><th>Project</th><th>Client</th><th>Location</th><th>Health</th><th>Completion</th><th>Contract value</th><th>End date</th></tr></thead><tbody>{filteredProjects.map((project) => <tr className={selectedProject?.craft_projectid === project.craft_projectid ? 'selected-row' : ''} key={project.craft_projectid} onClick={() => setSelectedProject(project)}><td className="equipment-name">{project.craft_projectname || project.craft_projectid1 || project.craft_projectid}<small>{project.craft_projecttype || 'Project'}</small></td><td>{clientName(clientMap.get(projectClientId(project) ?? ''))}</td><td>{project.craft_location || '-'}</td><td><span className={`status status-${healthStatus(project).toLowerCase()}`}>{healthStatus(project)}</span></td><td><div className="completion-cell"><span>{project.craft_completionpercentage ?? 0}%</span><i><b style={{ width: `${Math.min(project.craft_completionpercentage ?? 0, 100)}%` }} /></i></div></td><td>{money(project.craft_contractvalueaed)}</td><td>{date(project.craft_enddate)}</td></tr>)}</tbody></table></div>{filteredProjects.length === 0 && <p className="table-message">No projects match the selected filters.</p>}</section>
+        <aside className="details-panel entity-details-panel">
+          {selectedProject ? (
+            <div className="details-content">
+              <div className="panel-heading">
+                <div><p className="eyebrow">Project details</p><h2>{selectedProject.craft_projectname || selectedProject.craft_projectid1 || selectedProject.craft_projectid}</h2></div>
+                <span className={`status status-${healthStatus(selectedProject).toLowerCase()}`}>{healthStatus(selectedProject)}</span>
+              </div>
+
+              <dl className="details-list">
+                <div><dt>Client</dt><dd>{clientName(clientMap.get(projectClientId(selectedProject) ?? ''))}</dd></div>
+                <div><dt>Type</dt><dd>{selectedProject.craft_projecttype || '-'}</dd></div>
+                <div><dt>Location</dt><dd>{selectedProject.craft_location || '-'}</dd></div>
+                <div><dt>Start date</dt><dd>{date(selectedProject.craft_startdate)}</dd></div>
+                <div><dt>End date</dt><dd>{date(selectedProject.craft_enddate)}</dd></div>
+                <div><dt>Completion</dt><dd>{selectedProject.craft_completionpercentage ?? 0}%</dd></div>
+                <div><dt>Contract value</dt><dd>{money(selectedProject.craft_contractvalueaed)}</dd></div>
+                <div><dt>Total revenue</dt><dd>{money(selectedProject.craft_totalrevenue)}</dd></div>
+                <div><dt>Total cost</dt><dd>{money(selectedProject.craft_totalcost)}</dd></div>
+              </dl>
+
+              <div className="related-projects">
+                <div className="related-heading">
+                  <h3>Project phases</h3>
+                </div>
+                <div className="related-record-list">
+                {relatedPhases.length > 0 ? (
+                  relatedPhases.map((phase) => (
+                    <button className={`related-project ${selectedPhase?.craft_projectphaseid === phase.craft_projectphaseid ? 'selected-row' : ''}`} type="button" key={phase.craft_projectphaseid} onClick={() => {
+                      setSelectedPhase(phase)
+                      setSelectedProject(selectedProject)
+                      onOpenProjectPhase?.(phase)
+                    }}>
+                      <span>{phase.craft_phasename || phase.craft_phaseidentifier || phase.craft_projectphaseid}</span>
+                      <small>{phase.craft_phasestatusname || 'Phase status'} · {phase.craft_progresspercentage ?? 0}% complete</small>
+                    </button>
+                  ))
+                ) : (
+                  <p className="empty-widget">No project phases connected to this project.</p>
+                )}
+                </div>
+              </div>
+
+              <div className="related-projects">
+                <div className="related-heading">
+                  <h3>Permit Approvals</h3>
+                </div>
+                <div className="related-record-list">
+                {relatedPermitApprovals.length > 0 ? (
+                  relatedPermitApprovals.map((permit) => (
+                    <button className="related-project" type="button" key={permit.craft_permitapprovalid} onClick={() => onOpenPermitApproval?.(permit)}>
+                      <span>{permit.craft_permitid1 || permit.craft_permittypename || permit.craft_permitapprovalid}</span>
+                      <small>{permit.craft_permittypename || 'Permit'} · {permit.craft_statusname || 'Status unavailable'} · Expires {date(permit.craft_expirydate)}</small>
+                    </button>
+                  ))
+                ) : (
+                  <p className="empty-widget">No permit approvals connected to this project.</p>
+                )}
+                </div>
+              </div>
+
+            </div>
+          ) : (
+            <div className="empty-details"><strong>Select a project</strong><span>Project details and related phases will appear here.</span></div>
+          )}
+        </aside>
+      </div>
     </div>
   )
 }

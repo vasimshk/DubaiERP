@@ -1,16 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { ClientPage, ProjectsPage } from './ClientProjectViews'
+import { ClientPage, PermitApprovalsPage, ProjectPhasesPage, ProjectsPage } from './ClientProjectViews'
 import { ExecutiveSummary } from './ExecutiveSummary'
 import type { Craft_clients } from './generated/models/Craft_clientsModel'
 import type { Craft_contract1s } from './generated/models/Craft_contract1sModel'
+import type { Craft_contractors } from './generated/models/Craft_contractorsModel'
+import type { Craft_dailysitereports } from './generated/models/Craft_dailysitereportsModel'
 import type { Craft_employees } from './generated/models/Craft_employeesModel'
 import type { Craft_inspections } from './generated/models/Craft_inspectionsModel'
 import type { Craft_paymentapplications } from './generated/models/Craft_paymentapplicationsModel'
 import type { Craft_permitapprovals } from './generated/models/Craft_permitapprovalsModel'
+import type { Craft_projectdocuments } from './generated/models/Craft_projectdocumentsModel'
+import type { Craft_projectphases } from './generated/models/Craft_projectphasesModel'
 import type { Craft_projects } from './generated/models/Craft_projectsModel'
 import type { Craft_purchaseorders } from './generated/models/Craft_purchaseordersModel'
 import type { Craft_safetyincidents } from './generated/models/Craft_safetyincidentsModel'
+import type { Craft_suppliers } from './generated/models/Craft_suppliersModel'
+import type { Craft_variationorders } from './generated/models/Craft_variationordersModel'
+import type { Craft_workpackages } from './generated/models/Craft_workpackagesModel'
 import type { Craft_equipments, Craft_equipmentsBase } from './generated/models/Craft_equipmentsModel'
 import {
   Craft_equipmentscraft_currentstatus,
@@ -19,16 +26,23 @@ import {
 } from './generated/models/Craft_equipmentsModel'
 import { Craft_clientsService } from './generated/services/Craft_clientsService'
 import { Craft_contract1sService } from './generated/services/Craft_contract1sService'
+import { Craft_contractorsService } from './generated/services/Craft_contractorsService'
+import { Craft_dailysitereportsService } from './generated/services/Craft_dailysitereportsService'
 import { Craft_employeesService } from './generated/services/Craft_employeesService'
 import { Craft_equipmentsService } from './generated/services/Craft_equipmentsService'
 import { Craft_inspectionsService } from './generated/services/Craft_inspectionsService'
 import { Craft_paymentapplicationsService } from './generated/services/Craft_paymentapplicationsService'
 import { Craft_permitapprovalsService } from './generated/services/Craft_permitapprovalsService'
+import { Craft_projectdocumentsService } from './generated/services/Craft_projectdocumentsService'
+import { Craft_projectphasesService } from './generated/services/Craft_projectphasesService'
 import { Craft_projectsService } from './generated/services/Craft_projectsService'
 import { Craft_purchaseordersService } from './generated/services/Craft_purchaseordersService'
 import { Craft_safetyincidentsService } from './generated/services/Craft_safetyincidentsService'
+import { Craft_suppliersService } from './generated/services/Craft_suppliersService'
+import { Craft_variationordersService } from './generated/services/Craft_variationordersService'
+import { Craft_workpackagesService } from './generated/services/Craft_workpackagesService'
 
-type ViewMode = 'dashboard' | 'executive' | 'clients' | 'projects' | 'equipment'
+type ViewMode = 'dashboard' | 'executive' | 'clients' | 'projects' | 'contracts' | 'contractors' | 'daily-site-reports' | 'employees' | 'equipment' | 'inspections' | 'payment-applications' | 'permit-approvals' | 'project-documents' | 'project-phases' | 'purchase-orders' | 'safety-incidents' | 'suppliers' | 'variation-orders' | 'work-packages'
 
 type EquipmentDraft = Partial<Omit<Craft_equipmentsBase, 'craft_equipmentid'>> & {
   craft_equipmentid?: string
@@ -349,44 +363,169 @@ function DashboardView({ clients, projects, contracts, employees }: { clients: C
   )
 }
 
+function RelationshipTablePage({
+  title,
+  subtitle,
+  records,
+  titleKeys,
+  projectKeys,
+  metaKeys,
+  projectMap,
+  clientMap,
+}: {
+  title: string
+  subtitle: string
+  records: Record<string, any>[]
+  titleKeys: string[]
+  projectKeys: string[]
+  metaKeys: string[]
+  projectMap: Map<string, Craft_projects>
+  clientMap: Map<string, Craft_clients>
+}) {
+  const [search, setSearch] = useState('')
+
+  const filteredRecords = useMemo(() => {
+    const query = search.toLowerCase()
+    return records.filter((record) => {
+      const searchable = [
+        ...titleKeys.map((key) => record[key]),
+        ...metaKeys.map((key) => record[key]),
+        ...projectKeys.map((key) => record[key]),
+      ].filter((value) => value != null && value !== '')
+
+      return searchable.some((value) => String(value).toLowerCase().includes(query))
+    })
+  }, [records, search, titleKeys, metaKeys, projectKeys])
+
+  const getDisplayValue = (record: Record<string, any>, keys: string[]) => {
+    for (const key of keys) {
+      const value = record[key]
+      if (value != null && value !== '') return String(value)
+    }
+    return '-'
+  }
+
+  return (
+    <div className="entity-view">
+      <header className="entity-header">
+        <div>
+          <p className="eyebrow">Dubai ERP / Registry</p>
+          <h1>{title}</h1>
+          <p className="subtitle">{subtitle}</p>
+        </div>
+      </header>
+
+      <section className="entity-toolbar">
+        <label className="search-field">
+          <span>Search records</span>
+          <input type="search" placeholder="Search by name, project, notes..." value={search} onChange={(event) => setSearch(event.target.value)} />
+        </label>
+        <span className="result-count">Showing {filteredRecords.length} records</span>
+      </section>
+
+      <section className="table-panel entity-project-table">
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>{title}</th>
+                <th>Related project</th>
+                <th>Client</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRecords.map((record: Record<string, any>, index: number) => {
+                const projectId = projectKeys.map((key) => record[key]).find((value) => value != null && value !== '') ?? record._craft_project_value ?? record.craft_projectid
+                const project = projectId ? projectMap.get(String(projectId)) : undefined
+                const client = project && project.craft_clientid ? clientMap.get(project.craft_clientid) : undefined
+                const displayTitle = getDisplayValue(record, titleKeys)
+                const projectName = project?.craft_projectname || project?.craft_projectid1 || project?.craft_projectid || 'Unassigned project'
+                const clientName = client ? (client.craft_clientname || client.craft_clientid1 || client.craft_clientid) : 'Unassigned client'
+
+                return (
+                  <tr key={`${title}-${displayTitle}-${index}`}>
+                    <td className="equipment-name">
+                      <span>{displayTitle}</span>
+                      <small>{getDisplayValue(record, ['craft_recordversion', 'craft_status', 'craft_projecttype', 'craft_projectidentifier'])}</small>
+                    </td>
+                    <td>{projectName}</td>
+                    <td>{clientName}</td>
+                    <td>{getDisplayValue(record, metaKeys)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        {filteredRecords.length === 0 && <p className="table-message">No records match the selected filters.</p>}
+      </section>
+    </div>
+  )
+}
+
 function App() {
   const [view, setView] = useState<ViewMode>('dashboard')
   const [clients, setClients] = useState<Craft_clients[]>([])
   const [projects, setProjects] = useState<Craft_projects[]>([])
   const [contracts, setContracts] = useState<Craft_contract1s[]>([])
+  const [contractors, setContractors] = useState<Craft_contractors[]>([])
+  const [dailySiteReports, setDailySiteReports] = useState<Craft_dailysitereports[]>([])
   const [permits, setPermits] = useState<Craft_permitapprovals[]>([])
   const [incidents, setIncidents] = useState<Craft_safetyincidents[]>([])
   const [inspections, setInspections] = useState<Craft_inspections[]>([])
   const [payments, setPayments] = useState<Craft_paymentapplications[]>([])
   const [purchaseOrders, setPurchaseOrders] = useState<Craft_purchaseorders[]>([])
   const [employees, setEmployees] = useState<Craft_employees[]>([])
+  const [projectDocuments, setProjectDocuments] = useState<Craft_projectdocuments[]>([])
+  const [projectPhases, setProjectPhases] = useState<Craft_projectphases[]>([])
+  const [suppliers, setSuppliers] = useState<Craft_suppliers[]>([])
+  const [variationOrders, setVariationOrders] = useState<Craft_variationorders[]>([])
+  const [workPackages, setWorkPackages] = useState<Craft_workpackages[]>([])
   const [loading, setLoading] = useState(true)
   const [projectClientFilter, setProjectClientFilter] = useState('All clients')
+  const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null)
+  const [selectedPermitId, setSelectedPermitId] = useState<string | null>(null)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
       setLoading(false)
-      const [clients, projects, contracts, permits, incidents, inspections, payments, purchaseOrders, employees] = await Promise.all([
+      const [clients, projects, contracts, contractors, dailySiteReports, permits, incidents, inspections, payments, purchaseOrders, employees, projectDocuments, projectPhases, suppliers, variationOrders, workPackages] = await Promise.all([
         loadWithTimeout(Craft_clientsService.getAll({ top: 200 })),
         loadWithTimeout(Craft_projectsService.getAll({ top: 200 })),
         loadWithTimeout(Craft_contract1sService.getAll({ top: 200 })),
+        loadWithTimeout(Craft_contractorsService.getAll({ top: 200 })),
+        loadWithTimeout(Craft_dailysitereportsService.getAll({ top: 200 })),
         loadWithTimeout(Craft_permitapprovalsService.getAll({ top: 200 })),
         loadWithTimeout(Craft_safetyincidentsService.getAll({ top: 200 })),
         loadWithTimeout(Craft_inspectionsService.getAll({ top: 200 })),
         loadWithTimeout(Craft_paymentapplicationsService.getAll({ top: 200 })),
         loadWithTimeout(Craft_purchaseordersService.getAll({ top: 200 })),
         loadWithTimeout(Craft_employeesService.getAll({ top: 200 })),
+        loadWithTimeout(Craft_projectdocumentsService.getAll({ top: 200 })),
+        loadWithTimeout(Craft_projectphasesService.getAll({ top: 200 })),
+        loadWithTimeout(Craft_suppliersService.getAll({ top: 200 })),
+        loadWithTimeout(Craft_variationordersService.getAll({ top: 200 })),
+        loadWithTimeout(Craft_workpackagesService.getAll({ top: 200 })),
       ])
 
       setClients(clients)
       setProjects(projects)
       setContracts(contracts)
+      setContractors(contractors)
+      setDailySiteReports(dailySiteReports)
       setPermits(permits)
       setIncidents(incidents)
       setInspections(inspections)
       setPayments(payments)
       setPurchaseOrders(purchaseOrders)
       setEmployees(employees)
+      setProjectDocuments(projectDocuments)
+      setProjectPhases(projectPhases)
+      setSuppliers(suppliers)
+      setVariationOrders(variationOrders)
+      setWorkPackages(workPackages)
     }
 
     void load()
@@ -394,6 +533,23 @@ function App() {
 
   const openProjects = (clientId?: string) => {
     setProjectClientFilter(clientId ?? 'All clients')
+    setSelectedPhaseId(null)
+    setView('projects')
+  }
+
+  const openProjectPhase = (phase: Craft_projectphases) => {
+    setSelectedPhaseId(phase.craft_projectphaseid)
+    setView('project-phases')
+  }
+
+  const openPermitApproval = (permit: Craft_permitapprovals) => {
+    setSelectedPermitId(permit.craft_permitapprovalid)
+    setView('permit-approvals')
+  }
+
+  const openProject = (project: Craft_projects) => {
+    setProjectClientFilter('All clients')
+    setSelectedProjectId(project.craft_projectid)
     setView('projects')
   }
 
@@ -410,6 +566,20 @@ function App() {
           <button className={view === 'executive' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('executive')}>Executive summary</button>
           <button className={view === 'clients' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('clients')}>Clients</button>
           <button className={view === 'projects' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('projects')}>Projects</button>
+          <button className={view === 'contracts' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('contracts')}>Contracts</button>
+          <button className={view === 'contractors' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('contractors')}>Contractors</button>
+          <button className={view === 'daily-site-reports' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('daily-site-reports')}>Daily Site Reports</button>
+          <button className={view === 'employees' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('employees')}>Employees</button>
+          <button className={view === 'inspections' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('inspections')}>Inspections</button>
+          <button className={view === 'payment-applications' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('payment-applications')}>Payment Applications</button>
+          <button className={view === 'permit-approvals' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('permit-approvals')}>Permit Approvals</button>
+          <button className={view === 'project-documents' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('project-documents')}>Project Documents</button>
+          <button className={view === 'project-phases' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('project-phases')}>Project Phases</button>
+          <button className={view === 'purchase-orders' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('purchase-orders')}>Purchase Orders</button>
+          <button className={view === 'safety-incidents' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('safety-incidents')}>Safety Incidents</button>
+          <button className={view === 'suppliers' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('suppliers')}>Suppliers</button>
+          <button className={view === 'variation-orders' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('variation-orders')}>Variation Orders</button>
+          <button className={view === 'work-packages' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('work-packages')}>Work Packages</button>
           <button className={view === 'equipment' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('equipment')}>Equipment</button>
         </nav>
       </aside>
@@ -431,7 +601,35 @@ function App() {
       ) : view === 'clients' ? (
         <ClientPage clients={clients} projects={projects} onOpenProjects={openProjects} />
       ) : view === 'projects' ? (
-        <ProjectsPage clients={clients} projects={projects} onOpenProjects={openProjects} selectedClientId={projectClientFilter} />
+        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
+      ) : view === 'project-phases' ? (
+        <ProjectPhasesPage clients={clients} projects={projects} projectPhases={projectPhases} selectedPhaseId={selectedPhaseId} onOpenProject={openProject} />
+      ) : view === 'contracts' ? (
+        <RelationshipTablePage title="Contracts" subtitle="Track contract value, status, and project ownership across the portfolio." records={contracts as Record<string, any>[]} titleKeys={['craft_contractid1', 'craft_contract1id']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_contractstatusname', 'craft_contracttypename', 'craft_contractvalueaed']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+      ) : view === 'contractors' ? (
+        <RelationshipTablePage title="Contractors" subtitle="Track contractor profile, rating, and project-linked exposure." records={contractors as Record<string, any>[]} titleKeys={['craft_companyname', 'craft_contractorid1', 'craft_contractorid']} projectKeys={['craft_projectid']} metaKeys={['craft_ratingname', 'craft_specialty', 'craft_statusname']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+      ) : view === 'daily-site-reports' ? (
+        <RelationshipTablePage title="Daily Site Reports" subtitle="Follow project updates, manpower, and site conditions by report date." records={dailySiteReports as Record<string, any>[]} titleKeys={['craft_reportid', 'craft_dailysitereportid']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_reportdate', 'craft_workdescription', 'craft_weatherconditionname']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+      ) : view === 'employees' ? (
+        <RelationshipTablePage title="Employees" subtitle="Review workforce records and their linkage to active delivery work." records={employees as Record<string, any>[]} titleKeys={['craft_fullname', 'craft_employeeid1', 'craft_employeeid']} projectKeys={['craft_projectid']} metaKeys={['craft_designation', 'craft_department', 'craft_employmentstatusname']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+      ) : view === 'inspections' ? (
+        <RelationshipTablePage title="Inspections" subtitle="Monitor inspection outcomes, corrective actions, and project quality performance." records={inspections as Record<string, any>[]} titleKeys={['craft_inspectionid1', 'craft_inspectionid']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_inspectiontypename', 'craft_inspectionresultname', 'craft_remarks']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+      ) : view === 'payment-applications' ? (
+        <RelationshipTablePage title="Payment Applications" subtitle="Review certified values, dues, and payment status against each project." records={payments as Record<string, any>[]} titleKeys={['craft_paymentapplicationid', 'craft_certificatenumber']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_statusname', 'craft_netcertifiedamountaed', 'craft_paymentdate']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+      ) : view === 'permit-approvals' ? (
+        <PermitApprovalsPage clients={clients} projects={projects} permitApprovals={permits} selectedPermitId={selectedPermitId} onOpenProject={openProject} />
+      ) : view === 'project-documents' ? (
+        <RelationshipTablePage title="Project Documents" subtitle="Manage project documentation and link each document to the project and client." records={projectDocuments as Record<string, any>[]} titleKeys={['craft_documentname', 'craft_projectdocumentid']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_documenttype', 'craft_filetype', 'craft_uploadeddate']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+      ) : view === 'purchase-orders' ? (
+        <RelationshipTablePage title="Purchase Orders" subtitle="Review vendor commitments, project coverage, and order status." records={purchaseOrders as Record<string, any>[]} titleKeys={['craft_purchaseorderid1', 'craft_purchaseorderid']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_purchaseordertypename', 'craft_statusname', 'craft_amountaed']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+      ) : view === 'safety-incidents' ? (
+        <RelationshipTablePage title="Safety Incidents" subtitle="Review incident records, severity, and project accountability." records={incidents as Record<string, any>[]} titleKeys={['craft_incidentnumber', 'craft_safetyincidentid']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_incidenttype', 'craft_severity', 'craft_statusname']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+      ) : view === 'suppliers' ? (
+        <RelationshipTablePage title="Suppliers" subtitle="Maintain supplier records and their project-linked supply footprint." records={suppliers as Record<string, any>[]} titleKeys={['craft_companyname', 'craft_supplierid1', 'craft_supplierid']} projectKeys={['craft_projectid']} metaKeys={['craft_category', 'craft_statusname', 'craft_paymentterms']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+      ) : view === 'variation-orders' ? (
+        <RelationshipTablePage title="Variation Orders" subtitle="Track approved changes and cost adjustments against the relevant project." records={variationOrders as Record<string, any>[]} titleKeys={['craft_variationorderid1', 'craft_variationorderid']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_variationtype', 'craft_statusname', 'craft_amountaed']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+      ) : view === 'work-packages' ? (
+        <RelationshipTablePage title="Work Packages" subtitle="Monitor work-package scope, contractor, and project traceability." records={workPackages as Record<string, any>[]} titleKeys={['craft_workpackagename', 'craft_workpackageid']} projectKeys={['craft_projectid', '_craft_project_value', 'craft_projectphase']} metaKeys={['craft_contractorid', 'craft_statusname', 'craft_packagevalueaed']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
       ) : (
         <EquipmentPanel />
       )}

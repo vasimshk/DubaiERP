@@ -294,6 +294,16 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.side-nav-links::-webkit-scrollbar,
+.related-record-list::-webkit-scrollbar {
+  display: none;
 }
 
 .side-nav .nav-button {
@@ -533,6 +543,18 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.related-record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .related-project {
@@ -836,6 +858,8 @@ tbody tr:hover {
 
   .side-nav-links {
     flex-direction: row;
+    max-height: none;
+    overflow-y: hidden;
     overflow-x: auto;
   }
 
