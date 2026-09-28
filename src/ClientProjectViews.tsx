@@ -7,6 +7,7 @@ import type { Craft_clients } from './generated/models/Craft_clientsModel'
 import type { Craft_permitapprovals } from './generated/models/Craft_permitapprovalsModel'
 import type { Craft_projectphases } from './generated/models/Craft_projectphasesModel'
 import type { Craft_projects } from './generated/models/Craft_projectsModel'
+import type { Craft_safetyincidents } from './generated/models/Craft_safetyincidentsModel'
 
 type ClientProjectViewProps = {
   clients: Craft_clients[]
@@ -31,6 +32,11 @@ const permitBelongsToProject = (permit: Craft_permitapprovals, project: Craft_pr
   const permitProjectIds = [permit.craft_projectid, permit._craft_project_value].filter(Boolean)
   const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
   return permitProjectIds.some((permitProjectId) => projectIds.includes(permitProjectId))
+}
+const incidentBelongsToProject = (incident: Craft_safetyincidents, project: Craft_projects) => {
+  const incidentProjectIds = [incident.craft_projectid, incident._craft_project_value].filter(Boolean)
+  const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
+  return incidentProjectIds.some((incidentProjectId) => projectIds.includes(incidentProjectId))
 }
 
 export function ClientPage({ clients, projects, onOpenProjects }: ClientProjectViewProps) {
@@ -294,7 +300,110 @@ export function PermitApprovalsPage({ clients, projects, permitApprovals, select
   )
 }
 
-export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void }) {
+export function SafetyIncidentsPage({ clients, projects, incidents, selectedIncidentId, onOpenProject }: { clients: Craft_clients[]; projects: Craft_projects[]; incidents: Craft_safetyincidents[]; selectedIncidentId?: string | null; onOpenProject?: (project: Craft_projects) => void }) {
+  const [search, setSearch] = useState('')
+  const filteredIncidents = useMemo(() => {
+    const query = search.toLowerCase()
+    return incidents.filter((incident) => {
+      const project = projects.find((candidate) => incidentBelongsToProject(incident, candidate))
+      return [incident.craft_incidentid, incident.craft_incidentdescription, incident.craft_incidenttypename, incident.craft_incidentlocation, incident.craft_incidentstatusname, project?.craft_projectname, project?.craft_projectid1]
+        .some((value) => value?.toLowerCase().includes(query))
+    })
+  }, [incidents, projects, search])
+  const [selectedIncident, setSelectedIncident] = useState<Craft_safetyincidents | null>(null)
+
+  useEffect(() => {
+    if (filteredIncidents.length === 0) {
+      setSelectedIncident(null)
+      return
+    }
+
+    const matchingIncident = selectedIncidentId
+      ? filteredIncidents.find((incident) => incident.craft_safetyincidentid === selectedIncidentId)
+      : undefined
+    setSelectedIncident((current) => matchingIncident ?? (current && filteredIncidents.some((incident) => incident.craft_safetyincidentid === current.craft_safetyincidentid) ? current : filteredIncidents[0]))
+  }, [filteredIncidents, selectedIncidentId])
+
+  const selectedIncidentProject = selectedIncident ? projects.find((project) => incidentBelongsToProject(selectedIncident, project)) : undefined
+
+  return (
+    <div className="entity-view">
+      <header className="entity-header">
+        <div><p className="eyebrow">Dubai ERP / Safety</p><h1>Safety Incidents</h1><p className="subtitle">Review incident severity, response, and project accountability.</p></div>
+      </header>
+      <section className="entity-toolbar">
+        <label className="search-field"><span>Search incidents</span><input type="search" placeholder="Search incident, location, project..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <span className="result-count">Showing {filteredIncidents.length} records</span>
+      </section>
+      <div className="entity-content-grid">
+        <section className="table-panel entity-project-table">
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Incident</th><th>Type</th><th>Project</th><th>Severity</th><th>Status</th><th>Incident date</th></tr></thead>
+              <tbody>
+                {filteredIncidents.map((incident) => {
+                  const project = projects.find((candidate) => incidentBelongsToProject(incident, candidate))
+                  return (
+                    <tr className={selectedIncident?.craft_safetyincidentid === incident.craft_safetyincidentid ? 'selected-row' : ''} key={incident.craft_safetyincidentid} onClick={() => setSelectedIncident(incident)}>
+                      <td className="equipment-name">{incident.craft_incidentid || incident.craft_safetyincidentid}<small>{incident.craft_safetyincidentid}</small></td>
+                      <td>{incident.craft_incidenttypename || 'Incident'}</td>
+                      <td>{project?.craft_projectname || project?.craft_projectid1 || project?.craft_projectid || '-'}</td>
+                      <td>{incident.craft_severitylevelname || 'Unknown'}</td>
+                      <td>{incident.craft_incidentstatusname || 'Unknown'}</td>
+                      <td>{date(incident.craft_incidentdate)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {filteredIncidents.length === 0 && <p className="table-message">No safety incidents match your search.</p>}
+        </section>
+        <aside className="details-panel entity-details-panel">
+          {selectedIncident ? (
+            <div className="details-content">
+              <div className="panel-heading">
+                <div><p className="eyebrow">Safety incident details</p><h2>{selectedIncident.craft_incidentid || selectedIncident.craft_safetyincidentid}</h2></div>
+                <span className={`status status-${(selectedIncident.craft_incidentstatusname || 'unknown').toLowerCase().replaceAll(' ', '-')}`}>{selectedIncident.craft_incidentstatusname || 'Unknown'}</span>
+              </div>
+              <dl className="details-list">
+                <div><dt>Type</dt><dd>{selectedIncident.craft_incidenttypename || '-'}</dd></div>
+                <div><dt>Severity</dt><dd>{selectedIncident.craft_severitylevelname || '-'}</dd></div>
+                <div><dt>Incident date</dt><dd>{date(selectedIncident.craft_incidentdate)}</dd></div>
+                <div><dt>Location</dt><dd>{selectedIncident.craft_incidentlocation || '-'}</dd></div>
+                <div><dt>Injured persons</dt><dd>{selectedIncident.craft_numberofinjuredpersons ?? 0}</dd></div>
+                <div><dt>Lost-time days</dt><dd>{selectedIncident.craft_losttimeinjurydays ?? 0}</dd></div>
+                <div><dt>Description</dt><dd>{selectedIncident.craft_incidentdescription || '-'}</dd></div>
+                <div><dt>Root cause</dt><dd>{selectedIncident.craft_rootcause || '-'}</dd></div>
+                <div><dt>Corrective action</dt><dd>{selectedIncident.craft_correctiveaction || '-'}</dd></div>
+                <div><dt>Internal notes</dt><dd>{selectedIncident.craft_internalnotes || '-'}</dd></div>
+              </dl>
+              <section className="related-record-details">
+                <p className="eyebrow">Related project</p>
+                {selectedIncidentProject ? (
+                  <>
+                    <button className="related-project related-project-link" type="button" onClick={() => onOpenProject?.(selectedIncidentProject)}>
+                      <span>{selectedIncidentProject.craft_projectname || selectedIncidentProject.craft_projectid1 || selectedIncidentProject.craft_projectid}</span>
+                      <small>Open project record</small>
+                    </button>
+                    <dl className="details-list">
+                      <div><dt>Client</dt><dd>{clientName(clients.find((client) => projectClientId(selectedIncidentProject) === client.craft_clientid))}</dd></div>
+                      <div><dt>Location</dt><dd>{selectedIncidentProject.craft_location || '-'}</dd></div>
+                      <div><dt>Health</dt><dd>{healthStatus(selectedIncidentProject)}</dd></div>
+                      <div><dt>Completion</dt><dd>{selectedIncidentProject.craft_completionpercentage ?? 0}%</dd></div>
+                    </dl>
+                  </>
+                ) : <p className="empty-widget">No related project record found.</p>}
+              </section>
+            </div>
+          ) : <div className="empty-details"><strong>Select a safety incident</strong><span>Incident and project details will appear here.</span></div>}
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void }) {
   const [search, setSearch] = useState('')
   const [clientFilter, setClientFilter] = useState(selectedClientId)
   const [selectedProject, setSelectedProject] = useState<Craft_projects | null>(null)
@@ -355,6 +464,7 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
   const clientProjects = projects.filter((project) => projectClientId(project))
   const relatedPhases = selectedProject ? projectPhases.filter((phase) => phaseBelongsToProject(phase, selectedProject)) : []
   const relatedPermitApprovals = selectedProject ? permitApprovals.filter((permit) => permitBelongsToProject(permit, selectedProject)) : []
+  const relatedSafetyIncidents = selectedProject ? safetyIncidents.filter((incident) => incidentBelongsToProject(incident, selectedProject)) : []
 
   return (
     <div className="entity-view">
@@ -419,6 +529,24 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
                   ))
                 ) : (
                   <p className="empty-widget">No permit approvals connected to this project.</p>
+                )}
+                </div>
+              </div>
+
+              <div className="related-projects">
+                <div className="related-heading">
+                  <h3>Safety Incidents</h3>
+                </div>
+                <div className="related-record-list">
+                {relatedSafetyIncidents.length > 0 ? (
+                  relatedSafetyIncidents.map((incident) => (
+                    <button className="related-project" type="button" key={incident.craft_safetyincidentid} onClick={() => onOpenSafetyIncident?.(incident)}>
+                      <span>{incident.craft_incidentid || incident.craft_safetyincidentid}</span>
+                      <small>{incident.craft_incidenttypename || 'Incident'} · {incident.craft_severitylevelname || 'Severity unavailable'} · {incident.craft_incidentstatusname || 'Status unavailable'}</small>
+                    </button>
+                  ))
+                ) : (
+                  <p className="empty-widget">No safety incidents connected to this project.</p>
                 )}
                 </div>
               </div>

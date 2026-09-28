@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { ClientPage, PermitApprovalsPage, ProjectPhasesPage, ProjectsPage } from './ClientProjectViews'
+import { OperationsCommandCenter } from './OperationsCommandCenter'
+import { ClientPage, PermitApprovalsPage, ProjectPhasesPage, ProjectsPage, SafetyIncidentsPage } from './ClientProjectViews'
 import { ExecutiveSummary } from './ExecutiveSummary'
 import type { Craft_clients } from './generated/models/Craft_clientsModel'
 import type { Craft_contract1s } from './generated/models/Craft_contract1sModel'
@@ -19,6 +20,7 @@ import type { Craft_suppliers } from './generated/models/Craft_suppliersModel'
 import type { Craft_variationorders } from './generated/models/Craft_variationordersModel'
 import type { Craft_workpackages } from './generated/models/Craft_workpackagesModel'
 import type { Craft_equipments, Craft_equipmentsBase } from './generated/models/Craft_equipmentsModel'
+import type { CommandCenterSource } from './services/operationsCommandCenterService'
 import {
   Craft_equipmentscraft_currentstatus,
   Craft_equipmentscraft_equipmenttype,
@@ -78,21 +80,29 @@ const equipmentTypeOptions = enumOptions(Craft_equipmentscraft_equipmenttype as 
 const statusOptions = enumOptions(Craft_equipmentscraft_currentstatus as Record<string, string>)
 const ownershipOptions = enumOptions(Craft_equipmentscraft_ownershipstatus as Record<string, string>)
 
-const loadWithTimeout = async <T,>(request: Promise<{ data?: T[] }>, fallback: T[] = []) => {
+const loadWithTimeout = async <T,>(request: Promise<{ data?: T[] }>, fallback: T[] = [], onError?: (error: unknown) => void) => {
+  let timeoutId: number | undefined
   try {
     const result = await Promise.race([
       request,
-      new Promise<{ data: T[] }>((resolve) => window.setTimeout(() => resolve({ data: fallback }), 8000)),
+      new Promise<{ data: T[] }>((resolve) => {
+        timeoutId = window.setTimeout(() => {
+          onError?.(new Error('A data request timed out after 8 seconds.'))
+          resolve({ data: fallback })
+        }, 8000)
+      }),
     ])
     return result.data ?? fallback
-  } catch {
+  } catch (error) {
+    onError?.(error)
     return fallback
+  } finally {
+    if (timeoutId != null) window.clearTimeout(timeoutId)
   }
 }
 
-function EquipmentPanel() {
-  const [records, setRecords] = useState<Craft_equipments[]>([])
-  const [loading, setLoading] = useState(true)
+function EquipmentPanel({ records, loading, onRefresh }: { records: Craft_equipments[]; loading: boolean; onRefresh: () => Promise<void> }) {
+  const [refreshing, setRefreshing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -100,36 +110,15 @@ function EquipmentPanel() {
 
   const loadEquipment = async () => {
     try {
-      setLoading(true)
+      setRefreshing(true)
       setError('')
-      const result = await Craft_equipmentsService.getAll({
-        top: 100,
-        select: [
-          'craft_equipmentid',
-          'craft_model',
-          'craft_serialnumber',
-          'craft_equipmenttype',
-          'craft_currentstatus',
-          'craft_ownershipstatus',
-          'craft_dailyrateaed',
-          'craft_isactive',
-          'craft_operatorrequired',
-          'craft_internalnotes',
-          'statuscode',
-          'statecode',
-        ],
-      })
-      setRecords(result.data ?? [])
+      await onRefresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load equipment records.')
     } finally {
-      setLoading(false)
+      setRefreshing(false)
     }
   }
-
-  useEffect(() => {
-    void loadEquipment()
-  }, [])
 
   const summary = {
     total: records.length,
@@ -206,7 +195,7 @@ function EquipmentPanel() {
           <p className="eyebrow">Dubai ERP / Equipment</p>
           <h1>Equipment register</h1>
         </div>
-        <button className="primary-button" type="button" onClick={resetForm}>New equipment</button>
+        <div className="equipment-header-actions"><button className="secondary-button" type="button" onClick={() => void loadEquipment()} disabled={refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</button><button className="primary-button" type="button" onClick={resetForm}>New equipment</button></div>
       </header>
 
       <section className="summary-grid">
@@ -343,26 +332,6 @@ function EquipmentPanel() {
   )
 }
 
-function DashboardView({ clients, projects, contracts, employees }: { clients: Craft_clients[]; projects: Craft_projects[]; contracts: Craft_contract1s[]; employees: Craft_employees[] }) {
-  return (
-    <div className="dashboard-view">
-      <header className="entity-header">
-        <div>
-          <p className="eyebrow">Dubai ERP</p>
-          <h1>Dashboard</h1>
-          <p className="subtitle">A quick view of the current portfolio.</p>
-        </div>
-      </header>
-      <section className="metric-grid">
-        <article className="metric-card metric-card-primary"><span>Clients</span><strong>{clients.length}</strong><small>Portfolio accounts</small></article>
-        <article className="metric-card"><span>Projects</span><strong>{projects.length}</strong><small>Delivery portfolio</small></article>
-        <article className="metric-card"><span>Contracts</span><strong>{contracts.length}</strong><small>Active records</small></article>
-        <article className="metric-card"><span>Employees</span><strong>{employees.length}</strong><small>Workforce records</small></article>
-      </section>
-    </div>
-  )
-}
-
 function RelationshipTablePage({
   title,
   subtitle,
@@ -482,32 +451,40 @@ function App() {
   const [suppliers, setSuppliers] = useState<Craft_suppliers[]>([])
   const [variationOrders, setVariationOrders] = useState<Craft_variationorders[]>([])
   const [workPackages, setWorkPackages] = useState<Craft_workpackages[]>([])
+  const [equipment, setEquipment] = useState<Craft_equipments[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshingDashboard, setRefreshingDashboard] = useState(false)
+  const [dashboardError, setDashboardError] = useState<string | null>(null)
+  const [dashboardLastRefreshed, setDashboardLastRefreshed] = useState<Date | null>(null)
   const [projectClientFilter, setProjectClientFilter] = useState('All clients')
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null)
   const [selectedPermitId, setSelectedPermitId] = useState<string | null>(null)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
-      setLoading(false)
-      const [clients, projects, contracts, contractors, dailySiteReports, permits, incidents, inspections, payments, purchaseOrders, employees, projectDocuments, projectPhases, suppliers, variationOrders, workPackages] = await Promise.all([
-        loadWithTimeout(Craft_clientsService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_projectsService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_contract1sService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_contractorsService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_dailysitereportsService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_permitapprovalsService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_safetyincidentsService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_inspectionsService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_paymentapplicationsService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_purchaseordersService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_employeesService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_projectdocumentsService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_projectphasesService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_suppliersService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_variationordersService.getAll({ top: 200 })),
-        loadWithTimeout(Craft_workpackagesService.getAll({ top: 200 })),
+      setDashboardError(null)
+      const reportDashboardError = (error: unknown) => setDashboardError(error instanceof Error ? error.message : 'Unable to load one or more dashboard data sources.')
+      try {
+      const [clients, projects, contracts, contractors, dailySiteReports, permits, incidents, inspections, payments, purchaseOrders, employees, projectDocuments, projectPhases, suppliers, variationOrders, workPackages, equipment] = await Promise.all([
+        loadWithTimeout(Craft_clientsService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_projectsService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_contract1sService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_contractorsService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_dailysitereportsService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_permitapprovalsService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_safetyincidentsService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_inspectionsService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_paymentapplicationsService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_purchaseordersService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_employeesService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_projectdocumentsService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_projectphasesService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_suppliersService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_variationordersService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_workpackagesService.getAll({ top: 200 }), [], reportDashboardError),
+        loadWithTimeout(Craft_equipmentsService.getAll({ top: 100, select: ['craft_equipmentid', 'craft_equipmentid1', 'craft_model', 'craft_currentproject', 'craft_currentstatus', 'craft_currentstatusname', 'craft_ownershipstatus', 'craft_ownershipstatusname', 'craft_dailyrateaed', 'craft_equipmenttypename', 'craft_isactive', 'statecode', 'statuscode'] }), [], reportDashboardError),
       ])
 
       setClients(clients)
@@ -526,10 +503,103 @@ function App() {
       setSuppliers(suppliers)
       setVariationOrders(variationOrders)
       setWorkPackages(workPackages)
+      setEquipment(equipment)
+      setDashboardLastRefreshed(new Date())
+      } catch (error) {
+        reportDashboardError(error)
+      } finally {
+        setLoading(false)
+      }
     }
 
     void load()
   }, [])
+
+  const refreshDashboard = async () => {
+    setRefreshingDashboard(true)
+    setDashboardError(null)
+    const requestRows = async <T,>(request: Promise<{ data?: T[] }>) => {
+      let timeoutId: number | undefined
+      const timeout = new Promise<never>((_, reject) => {
+        timeoutId = window.setTimeout(() => reject(new Error('Dashboard refresh timed out after 12 seconds.')), 12000)
+      })
+      try {
+        const result = await Promise.race([request, timeout])
+        return result.data ?? []
+      } finally {
+        if (timeoutId != null) window.clearTimeout(timeoutId)
+      }
+    }
+
+    try {
+      const [projects, contracts, contractors, phases, dailySiteReports, workPackages, payments, purchaseOrders, variationOrders, incidents, inspections, permits, equipment, documents, clients, suppliers, employees] = await Promise.all([
+        requestRows(Craft_projectsService.getAll({ top: 200 })),
+        requestRows(Craft_contract1sService.getAll({ top: 200 })),
+        requestRows(Craft_contractorsService.getAll({ top: 200 })),
+        requestRows(Craft_projectphasesService.getAll({ top: 200 })),
+        requestRows(Craft_dailysitereportsService.getAll({ top: 200 })),
+        requestRows(Craft_workpackagesService.getAll({ top: 200 })),
+        requestRows(Craft_paymentapplicationsService.getAll({ top: 200 })),
+        requestRows(Craft_purchaseordersService.getAll({ top: 200 })),
+        requestRows(Craft_variationordersService.getAll({ top: 200 })),
+        requestRows(Craft_safetyincidentsService.getAll({ top: 200 })),
+        requestRows(Craft_inspectionsService.getAll({ top: 200 })),
+        requestRows(Craft_permitapprovalsService.getAll({ top: 200 })),
+        requestRows(Craft_equipmentsService.getAll({ top: 100, select: ['craft_equipmentid', 'craft_equipmentid1', 'craft_model', 'craft_currentproject', 'craft_currentstatus', 'craft_currentstatusname', 'craft_ownershipstatus', 'craft_ownershipstatusname', 'craft_dailyrateaed', 'craft_equipmenttypename', 'craft_isactive', 'statecode', 'statuscode'] })),
+        requestRows(Craft_projectdocumentsService.getAll({ top: 200 })),
+        requestRows(Craft_clientsService.getAll({ top: 200 })),
+        requestRows(Craft_suppliersService.getAll({ top: 200 })),
+        requestRows(Craft_employeesService.getAll({ top: 200 })),
+      ])
+      setProjects(projects)
+      setContracts(contracts)
+      setContractors(contractors)
+      setProjectPhases(phases)
+      setDailySiteReports(dailySiteReports)
+      setWorkPackages(workPackages)
+      setPayments(payments)
+      setPurchaseOrders(purchaseOrders)
+      setVariationOrders(variationOrders)
+      setIncidents(incidents)
+      setInspections(inspections)
+      setPermits(permits)
+      setEquipment(equipment)
+      setProjectDocuments(documents)
+      setClients(clients)
+      setSuppliers(suppliers)
+      setEmployees(employees)
+      setDashboardLastRefreshed(new Date())
+    } catch (error) {
+      setDashboardError(error instanceof Error ? error.message : 'Unable to refresh dashboard data.')
+    } finally {
+      setRefreshingDashboard(false)
+    }
+  }
+
+  const refreshEquipment = async () => {
+    const result = await Craft_equipmentsService.getAll({ top: 100, select: ['craft_equipmentid', 'craft_equipmentid1', 'craft_model', 'craft_currentproject', 'craft_currentstatus', 'craft_currentstatusname', 'craft_ownershipstatus', 'craft_ownershipstatusname', 'craft_dailyrateaed', 'craft_equipmenttypename', 'craft_isactive', 'statecode', 'statuscode'] })
+    setEquipment(result.data ?? [])
+  }
+
+  const dashboardSource = useMemo<CommandCenterSource>(() => ({
+    projects,
+    contracts,
+    contractors,
+    workPackages,
+    payments,
+    variationOrders,
+    incidents,
+    inspections,
+    permits,
+    equipment,
+    phases: projectPhases,
+    purchaseOrders,
+    documents: projectDocuments,
+    clients,
+    dailySiteReports,
+    suppliers,
+    employees,
+  }), [clients, contracts, contractors, dailySiteReports, employees, equipment, incidents, inspections, payments, permits, projectDocuments, projectPhases, projects, purchaseOrders, suppliers, variationOrders, workPackages])
 
   const openProjects = (clientId?: string) => {
     setProjectClientFilter(clientId ?? 'All clients')
@@ -545,6 +615,11 @@ function App() {
   const openPermitApproval = (permit: Craft_permitapprovals) => {
     setSelectedPermitId(permit.craft_permitapprovalid)
     setView('permit-approvals')
+  }
+
+  const openSafetyIncident = (incident: Craft_safetyincidents) => {
+    setSelectedIncidentId(incident.craft_safetyincidentid)
+    setView('safety-incidents')
   }
 
   const openProject = (project: Craft_projects) => {
@@ -586,7 +661,7 @@ function App() {
 
       <main className="app-content">
       {view === 'dashboard' ? (
-        <DashboardView clients={clients} projects={projects} contracts={contracts} employees={employees} />
+        <OperationsCommandCenter source={dashboardSource} loading={loading} refreshing={refreshingDashboard} error={dashboardError} lastRefreshed={dashboardLastRefreshed} onRefresh={() => void refreshDashboard()} />
       ) : view === 'executive' ? (
         <ExecutiveSummary
           contracts={contracts}
@@ -601,7 +676,7 @@ function App() {
       ) : view === 'clients' ? (
         <ClientPage clients={clients} projects={projects} onOpenProjects={openProjects} />
       ) : view === 'projects' ? (
-        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
+        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} safetyIncidents={incidents} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} onOpenSafetyIncident={openSafetyIncident} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
       ) : view === 'project-phases' ? (
         <ProjectPhasesPage clients={clients} projects={projects} projectPhases={projectPhases} selectedPhaseId={selectedPhaseId} onOpenProject={openProject} />
       ) : view === 'contracts' ? (
@@ -623,7 +698,7 @@ function App() {
       ) : view === 'purchase-orders' ? (
         <RelationshipTablePage title="Purchase Orders" subtitle="Review vendor commitments, project coverage, and order status." records={purchaseOrders as Record<string, any>[]} titleKeys={['craft_purchaseorderid1', 'craft_purchaseorderid']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_purchaseordertypename', 'craft_statusname', 'craft_amountaed']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
       ) : view === 'safety-incidents' ? (
-        <RelationshipTablePage title="Safety Incidents" subtitle="Review incident records, severity, and project accountability." records={incidents as Record<string, any>[]} titleKeys={['craft_incidentnumber', 'craft_safetyincidentid']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_incidenttype', 'craft_severity', 'craft_statusname']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+        <SafetyIncidentsPage clients={clients} projects={projects} incidents={incidents} selectedIncidentId={selectedIncidentId} onOpenProject={openProject} />
       ) : view === 'suppliers' ? (
         <RelationshipTablePage title="Suppliers" subtitle="Maintain supplier records and their project-linked supply footprint." records={suppliers as Record<string, any>[]} titleKeys={['craft_companyname', 'craft_supplierid1', 'craft_supplierid']} projectKeys={['craft_projectid']} metaKeys={['craft_category', 'craft_statusname', 'craft_paymentterms']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
       ) : view === 'variation-orders' ? (
@@ -631,7 +706,7 @@ function App() {
       ) : view === 'work-packages' ? (
         <RelationshipTablePage title="Work Packages" subtitle="Monitor work-package scope, contractor, and project traceability." records={workPackages as Record<string, any>[]} titleKeys={['craft_workpackagename', 'craft_workpackageid']} projectKeys={['craft_projectid', '_craft_project_value', 'craft_projectphase']} metaKeys={['craft_contractorid', 'craft_statusname', 'craft_packagevalueaed']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
       ) : (
-        <EquipmentPanel />
+        <EquipmentPanel records={equipment} loading={loading} onRefresh={refreshEquipment} />
       )}
       </main>
     </div>
