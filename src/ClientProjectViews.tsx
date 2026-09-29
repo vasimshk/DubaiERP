@@ -8,6 +8,7 @@ import type { Craft_contract1s } from './generated/models/Craft_contract1sModel'
 import type { Craft_contractors } from './generated/models/Craft_contractorsModel'
 import type { Craft_employees } from './generated/models/Craft_employeesModel'
 import type { Craft_inspections } from './generated/models/Craft_inspectionsModel'
+import type { Craft_paymentapplications } from './generated/models/Craft_paymentapplicationsModel'
 import type { Craft_permitapprovals } from './generated/models/Craft_permitapprovalsModel'
 import type { Craft_projectdocuments } from './generated/models/Craft_projectdocumentsModel'
 import type { Craft_projectphases } from './generated/models/Craft_projectphasesModel'
@@ -94,6 +95,16 @@ const inspectionBelongsToEmployee = (inspection: Craft_inspections, employee: Cr
   const inspectionEmployeeIds = [inspection.craft_inspectorid, inspection._craft_employeerecord_value].filter(Boolean)
   const employeeIds = [employee.craft_employeeid, employee.craft_employeeid1].filter(Boolean)
   return inspectionEmployeeIds.some((employeeId) => employeeIds.includes(employeeId))
+}
+const paymentApplicationBelongsToProject = (payment: Craft_paymentapplications, project: Craft_projects) => {
+  const paymentProjectIds = [payment.craft_projectid, payment._craft_project_value].filter(Boolean)
+  const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
+  return paymentProjectIds.some((projectId) => projectIds.includes(projectId))
+}
+const paymentApplicationBelongsToContract = (payment: Craft_paymentapplications, contract: Craft_contract1s) => {
+  const paymentContractIds = [payment.craft_contractid, payment._craft_contract1_value].filter(Boolean)
+  const contractIds = [contract.craft_contract1id, contract.craft_contractid1].filter(Boolean)
+  return paymentContractIds.some((contractId) => contractIds.includes(contractId))
 }
 
 export function ClientPage({ clients, projects, onOpenProjects }: ClientProjectViewProps) {
@@ -888,7 +899,120 @@ export function ContractorsPage({ projects, contractors, contracts, selectedCont
   )
 }
 
-export function ContractsPage({ clients, projects, contractors, contracts, selectedContractId, onOpenProject, onOpenContractor }: { clients: Craft_clients[]; projects: Craft_projects[]; contractors: Craft_contractors[]; contracts: Craft_contract1s[]; selectedContractId?: string | null; onOpenProject?: (project: Craft_projects) => void; onOpenContractor?: (contractor: Craft_contractors) => void }) {
+export function PaymentApplicationsPage({ projects, contracts, paymentApplications, selectedPaymentApplicationId, onOpenProject, onOpenContract }: { projects: Craft_projects[]; contracts: Craft_contract1s[]; paymentApplications: Craft_paymentapplications[]; selectedPaymentApplicationId?: string | null; onOpenProject?: (project: Craft_projects) => void; onOpenContract?: (contract: Craft_contract1s) => void }) {
+  const [search, setSearch] = useState('')
+  const filteredPaymentApplications = useMemo(() => {
+    const query = search.toLowerCase()
+    return paymentApplications.filter((payment) => {
+      const project = projects.find((candidate) => paymentApplicationBelongsToProject(payment, candidate))
+      const contract = contracts.find((candidate) => paymentApplicationBelongsToContract(payment, candidate))
+      return [
+        payment.craft_certificatenumber == null ? undefined : String(payment.craft_certificatenumber),
+        payment.craft_certificateid,
+        payment.craft_paymentapplicationid,
+        payment.craft_statusname,
+        payment.craft_internalnotes,
+        project?.craft_projectname,
+        project?.craft_projectid1,
+        contract?.craft_contractid1,
+      ].some((value) => value?.toLowerCase().includes(query))
+    })
+  }, [contracts, paymentApplications, projects, search])
+  const [selectedPaymentApplication, setSelectedPaymentApplication] = useState<Craft_paymentapplications | null>(null)
+
+  useEffect(() => {
+    const requestedPayment = selectedPaymentApplicationId
+      ? filteredPaymentApplications.find((payment) => payment.craft_paymentapplicationid === selectedPaymentApplicationId)
+      : undefined
+    setSelectedPaymentApplication((current) => requestedPayment
+      ?? (current && filteredPaymentApplications.some((payment) => payment.craft_paymentapplicationid === current.craft_paymentapplicationid) ? current : filteredPaymentApplications[0] ?? null))
+  }, [filteredPaymentApplications, selectedPaymentApplicationId])
+
+  const selectedPaymentProject = selectedPaymentApplication ? projects.find((project) => paymentApplicationBelongsToProject(selectedPaymentApplication, project)) : undefined
+  const selectedPaymentContract = selectedPaymentApplication ? contracts.find((contract) => paymentApplicationBelongsToContract(selectedPaymentApplication, contract)) : undefined
+
+  return (
+    <div className="entity-view">
+      <header className="entity-header">
+        <div><p className="eyebrow">Dubai ERP / Finance</p><h1>Payment Applications</h1><p className="subtitle">Review payment certificates, certified values, deductions, and linked project contracts.</p></div>
+      </header>
+      <section className="entity-toolbar">
+        <label className="search-field"><span>Search payment applications</span><input type="search" placeholder="Search certificate, project, contract..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <span className="result-count">Showing {filteredPaymentApplications.length} records</span>
+      </section>
+      <div className="entity-content-grid">
+        <section className="table-panel entity-project-table">
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Certificate</th><th>Project</th><th>Contract</th><th>Status</th><th>Net certified</th><th>Payment date</th></tr></thead>
+              <tbody>
+                {filteredPaymentApplications.map((payment) => {
+                  const project = projects.find((candidate) => paymentApplicationBelongsToProject(payment, candidate))
+                  const contract = contracts.find((candidate) => paymentApplicationBelongsToContract(payment, candidate))
+                  return (
+                    <tr className={selectedPaymentApplication?.craft_paymentapplicationid === payment.craft_paymentapplicationid ? 'selected-row' : ''} key={payment.craft_paymentapplicationid} onClick={() => setSelectedPaymentApplication(payment)}>
+                      <td className="equipment-name">{payment.craft_certificatenumber ? `Certificate ${payment.craft_certificatenumber}` : payment.craft_certificateid || payment.craft_paymentapplicationid}<small>{payment.craft_paymentapplicationid}</small></td>
+                      <td>{project?.craft_projectname || project?.craft_projectid1 || project?.craft_projectid || '-'}</td>
+                      <td>{contract?.craft_contractid1 || contract?.craft_contract1id || '-'}</td>
+                      <td>{payment.craft_statusname || 'Unknown'}</td>
+                      <td>{money(payment.craft_netcertifiedamountaed)}</td>
+                      <td>{date(payment.craft_paymentdate)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {filteredPaymentApplications.length === 0 && <p className="table-message">No payment applications match your search.</p>}
+        </section>
+        <aside className="details-panel entity-details-panel">
+          {selectedPaymentApplication ? (
+            <div className="details-content">
+              <div className="panel-heading">
+                <div><p className="eyebrow">Payment application details</p><h2>{selectedPaymentApplication.craft_certificatenumber ? `Certificate ${selectedPaymentApplication.craft_certificatenumber}` : selectedPaymentApplication.craft_certificateid || selectedPaymentApplication.craft_paymentapplicationid}</h2></div>
+                <span className={`status status-${(selectedPaymentApplication.craft_statusname || 'unknown').toLowerCase().replaceAll(' ', '-')}`}>{selectedPaymentApplication.craft_statusname || 'Unknown'}</span>
+              </div>
+              <dl className="details-list">
+                <div><dt>Certificate ID</dt><dd>{selectedPaymentApplication.craft_certificateid || selectedPaymentApplication.craft_paymentapplicationid}</dd></div>
+                <div><dt>Submission date</dt><dd>{date(selectedPaymentApplication.craft_submissiondate)}</dd></div>
+                <div><dt>Period start</dt><dd>{date(selectedPaymentApplication.craft_periodstartdate)}</dd></div>
+                <div><dt>Period end</dt><dd>{date(selectedPaymentApplication.craft_periodenddate)}</dd></div>
+                <div><dt>Payment date</dt><dd>{date(selectedPaymentApplication.craft_paymentdate)}</dd></div>
+                <div><dt>Gross value</dt><dd>{money(selectedPaymentApplication.craft_grossvalueaed)}</dd></div>
+                <div><dt>Deductions</dt><dd>{money(selectedPaymentApplication.craft_deductionsaed)}</dd></div>
+                <div><dt>Retention</dt><dd>{money(selectedPaymentApplication.craft_retentionamountaed)}</dd></div>
+                <div><dt>Net certified amount</dt><dd>{money(selectedPaymentApplication.craft_netcertifiedamountaed)}</dd></div>
+                <div><dt>Cumulative value</dt><dd>{money(selectedPaymentApplication.craft_cumulativevalueaed)}</dd></div>
+                <div><dt>Remaining balance</dt><dd>{money(selectedPaymentApplication.craft_remainingbalanceaed)}</dd></div>
+                <div><dt>Internal notes</dt><dd>{selectedPaymentApplication.craft_internalnotes || '-'}</dd></div>
+              </dl>
+              <section className="related-record-details">
+                <p className="eyebrow">Related project</p>
+                {selectedPaymentProject ? (
+                  <button className="related-project related-project-link" type="button" onClick={() => onOpenProject?.(selectedPaymentProject)}>
+                    <span>{selectedPaymentProject.craft_projectname || selectedPaymentProject.craft_projectid1 || selectedPaymentProject.craft_projectid}</span>
+                    <small>{selectedPaymentProject.craft_location || 'Location unavailable'} · {healthStatus(selectedPaymentProject)} · Open project record</small>
+                  </button>
+                ) : <p className="empty-widget">No related project record found.</p>}
+              </section>
+              <section className="related-record-details">
+                <p className="eyebrow">Related contract</p>
+                {selectedPaymentContract ? (
+                  <button className="related-project related-project-link" type="button" onClick={() => onOpenContract?.(selectedPaymentContract)}>
+                    <span>{selectedPaymentContract.craft_contractid1 || selectedPaymentContract.craft_contract1id}</span>
+                    <small>{selectedPaymentContract.craft_contracttypename || 'Contract'} · {selectedPaymentContract.craft_contractstatusname || 'Status unavailable'} · Open contract record</small>
+                  </button>
+                ) : <p className="empty-widget">No related contract record found.</p>}
+              </section>
+            </div>
+          ) : <div className="empty-details"><strong>Select a payment application</strong><span>Payment and related project and contract details will appear here.</span></div>}
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+export function ContractsPage({ clients, projects, contractors, contracts, paymentApplications, selectedContractId, onOpenProject, onOpenContractor, onOpenPaymentApplication }: { clients: Craft_clients[]; projects: Craft_projects[]; contractors: Craft_contractors[]; contracts: Craft_contract1s[]; paymentApplications: Craft_paymentapplications[]; selectedContractId?: string | null; onOpenProject?: (project: Craft_projects) => void; onOpenContractor?: (contractor: Craft_contractors) => void; onOpenPaymentApplication?: (payment: Craft_paymentapplications) => void }) {
   const [search, setSearch] = useState('')
   const filteredContracts = useMemo(() => {
     const query = search.toLowerCase()
@@ -914,6 +1038,7 @@ export function ContractsPage({ clients, projects, contractors, contracts, selec
 
   const selectedContractProject = selectedContract ? projects.find((project) => contractBelongsToProject(selectedContract, project)) : undefined
   const selectedContractors = selectedContract ? contractors.filter((contractor) => contractorBelongsToContract(contractor, selectedContract)) : []
+  const relatedPaymentApplications = selectedContract ? paymentApplications.filter((payment) => paymentApplicationBelongsToContract(payment, selectedContract)) : []
 
   return (
     <div className="entity-view">
@@ -998,6 +1123,15 @@ export function ContractsPage({ clients, projects, contractors, contracts, selec
                     ))}
                   </div>
                 ) : <p className="empty-widget">No related contractor record found.</p>}
+              </section>
+              <section className="related-record-details">
+                <p className="eyebrow">Related payment applications</p>
+                {relatedPaymentApplications.length > 0 ? <div className="related-record-list">{relatedPaymentApplications.map((payment) => (
+                  <button className="related-project related-project-link" type="button" key={payment.craft_paymentapplicationid} onClick={() => onOpenPaymentApplication?.(payment)}>
+                    <span>{payment.craft_certificatenumber ? `Certificate ${payment.craft_certificatenumber}` : payment.craft_certificateid || payment.craft_paymentapplicationid}</span>
+                    <small>{payment.craft_statusname || 'Status unavailable'} · {money(payment.craft_netcertifiedamountaed)} · {date(payment.craft_paymentdate)}</small>
+                  </button>
+                ))}</div> : <p className="empty-widget">No payment applications connected to this contract.</p>}
               </section>
             </div>
           ) : <div className="empty-details"><strong>Select a contract</strong><span>Contract and project details will appear here.</span></div>}
@@ -1229,7 +1363,7 @@ export function ProjectDocumentsPage({ clients, projects, projectDocuments, sele
   )
 }
 
-export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], projectDocuments = [], employees = [], contracts = [], workPackages = [], inspections = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, onOpenProjectDocument, onOpenEmployee, onOpenContract, onOpenWorkPackage, onOpenInspection, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; projectDocuments?: Craft_projectdocuments[]; employees?: Craft_employees[]; contracts?: Craft_contract1s[]; workPackages?: Craft_workpackages[]; inspections?: Craft_inspections[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void; onOpenProjectDocument?: (projectDocument: Craft_projectdocuments) => void; onOpenEmployee?: (employee: Craft_employees) => void; onOpenContract?: (contract: Craft_contract1s) => void; onOpenWorkPackage?: (workPackage: Craft_workpackages) => void; onOpenInspection?: (inspection: Craft_inspections) => void }) {
+export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], projectDocuments = [], employees = [], contracts = [], workPackages = [], inspections = [], paymentApplications = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, onOpenProjectDocument, onOpenEmployee, onOpenContract, onOpenWorkPackage, onOpenInspection, onOpenPaymentApplication, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; projectDocuments?: Craft_projectdocuments[]; employees?: Craft_employees[]; contracts?: Craft_contract1s[]; workPackages?: Craft_workpackages[]; inspections?: Craft_inspections[]; paymentApplications?: Craft_paymentapplications[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void; onOpenProjectDocument?: (projectDocument: Craft_projectdocuments) => void; onOpenEmployee?: (employee: Craft_employees) => void; onOpenContract?: (contract: Craft_contract1s) => void; onOpenWorkPackage?: (workPackage: Craft_workpackages) => void; onOpenInspection?: (inspection: Craft_inspections) => void; onOpenPaymentApplication?: (payment: Craft_paymentapplications) => void }) {
   const [search, setSearch] = useState('')
   const [clientFilter, setClientFilter] = useState(selectedClientId)
   const [selectedProject, setSelectedProject] = useState<Craft_projects | null>(null)
@@ -1297,6 +1431,7 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
   const relatedEmployees = selectedProject ? employees.filter((employee) => employeeBelongsToProject(selectedProject, employee)) : []
   const relatedWorkPackages = selectedProject ? workPackages.filter((workPackage) => workPackageBelongsToProject(workPackage, selectedProject)) : []
   const relatedInspections = selectedProject ? inspections.filter((inspection) => inspectionBelongsToProject(inspection, selectedProject)) : []
+  const relatedPaymentApplications = selectedProject ? paymentApplications.filter((payment) => paymentApplicationBelongsToProject(payment, selectedProject)) : []
 
   return (
     <div className="entity-view">
@@ -1487,6 +1622,24 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
                   ))
                 ) : (
                   <p className="empty-widget">No inspections connected to this project.</p>
+                )}
+                </div>
+              </div>
+
+              <div className="related-projects">
+                <div className="related-heading">
+                  <h3>Payment Applications</h3>
+                </div>
+                <div className="related-record-list">
+                {relatedPaymentApplications.length > 0 ? (
+                  relatedPaymentApplications.map((payment) => (
+                    <button className="related-project" type="button" key={payment.craft_paymentapplicationid} onClick={() => onOpenPaymentApplication?.(payment)}>
+                      <span>{payment.craft_certificatenumber ? `Certificate ${payment.craft_certificatenumber}` : payment.craft_certificateid || payment.craft_paymentapplicationid}</span>
+                      <small>{payment.craft_statusname || 'Status unavailable'} · {money(payment.craft_netcertifiedamountaed)} · {date(payment.craft_paymentdate)}</small>
+                    </button>
+                  ))
+                ) : (
+                  <p className="empty-widget">No payment applications connected to this project.</p>
                 )}
                 </div>
               </div>

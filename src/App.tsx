@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { OperationsCommandCenter } from './OperationsCommandCenter'
-import { ClientPage, ContractorsPage, ContractsPage, EmployeesPage, InspectionsPage, PermitApprovalsPage, ProjectDocumentsPage, ProjectPhasesPage, ProjectsPage, SafetyIncidentsPage, VariationOrdersPage, WorkPackagesPage } from './ClientProjectViews'
+import { ClientPage, ContractorsPage, ContractsPage, EmployeesPage, InspectionsPage, PaymentApplicationsPage, PermitApprovalsPage, ProjectDocumentsPage, ProjectPhasesPage, ProjectsPage, SafetyIncidentsPage, VariationOrdersPage, WorkPackagesPage } from './ClientProjectViews'
 import { ExecutiveSummary } from './ExecutiveSummary'
 import type { Craft_clients } from './generated/models/Craft_clientsModel'
 import type { Craft_contract1s } from './generated/models/Craft_contract1sModel'
@@ -473,6 +473,7 @@ function App() {
   const [selectedWorkPackageId, setSelectedWorkPackageId] = useState<string | null>(null)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
   const [selectedInspectionId, setSelectedInspectionId] = useState<string | null>(null)
+  const [selectedPaymentApplicationId, setSelectedPaymentApplicationId] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -674,6 +675,11 @@ function App() {
     setView('inspections')
   }
 
+  const openPaymentApplication = (paymentApplication: Craft_paymentapplications) => {
+    setSelectedPaymentApplicationId(paymentApplication.craft_paymentapplicationid)
+    setView('payment-applications')
+  }
+
   const openProject = (project: Craft_projects) => {
     setProjectClientFilter('All clients')
     setSelectedProjectId(project.craft_projectid)
@@ -728,11 +734,11 @@ function App() {
       ) : view === 'clients' ? (
         <ClientPage clients={clients} projects={projects} onOpenProjects={openProjects} />
       ) : view === 'projects' ? (
-        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} safetyIncidents={incidents} variationOrders={variationOrders} projectDocuments={projectDocuments} employees={employees} contracts={contracts} workPackages={workPackages} inspections={inspections} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} onOpenSafetyIncident={openSafetyIncident} onOpenVariationOrder={openVariationOrder} onOpenProjectDocument={openProjectDocument} onOpenEmployee={openEmployee} onOpenContract={openContract} onOpenWorkPackage={openWorkPackage} onOpenInspection={openInspection} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
+        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} safetyIncidents={incidents} variationOrders={variationOrders} projectDocuments={projectDocuments} employees={employees} contracts={contracts} workPackages={workPackages} inspections={inspections} paymentApplications={payments} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} onOpenSafetyIncident={openSafetyIncident} onOpenVariationOrder={openVariationOrder} onOpenProjectDocument={openProjectDocument} onOpenEmployee={openEmployee} onOpenContract={openContract} onOpenWorkPackage={openWorkPackage} onOpenInspection={openInspection} onOpenPaymentApplication={openPaymentApplication} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
       ) : view === 'project-phases' ? (
         <ProjectPhasesPage clients={clients} projects={projects} projectPhases={projectPhases} selectedPhaseId={selectedPhaseId} onOpenProject={openProject} />
       ) : view === 'contracts' ? (
-        <ContractsPage clients={clients} projects={projects} contractors={contractors} contracts={contracts} selectedContractId={selectedContractId} onOpenProject={openProject} onOpenContractor={openContractor} />
+        <ContractsPage clients={clients} projects={projects} contractors={contractors} contracts={contracts} paymentApplications={payments} selectedContractId={selectedContractId} onOpenProject={openProject} onOpenContractor={openContractor} onOpenPaymentApplication={openPaymentApplication} />
       ) : view === 'contractors' ? (
         <ContractorsPage clients={clients} projects={projects} contractors={contractors} contracts={contracts} selectedContractorId={selectedContractorId} onOpenContract={openContractorContract} onOpenProject={openProject} />
       ) : view === 'daily-site-reports' ? (
@@ -742,7 +748,7 @@ function App() {
       ) : view === 'inspections' ? (
         <InspectionsPage projects={projects} employees={employees} inspections={inspections} selectedInspectionId={selectedInspectionId} onOpenProject={openProject} onOpenEmployee={openEmployee} />
       ) : view === 'payment-applications' ? (
-        <RelationshipTablePage title="Payment Applications" subtitle="Review certified values, dues, and payment status against each project." records={payments as Record<string, any>[]} titleKeys={['craft_paymentapplicationid', 'craft_certificatenumber']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_statusname', 'craft_netcertifiedamountaed', 'craft_paymentdate']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+        <PaymentApplicationsPage projects={projects} contracts={contracts} paymentApplications={payments} selectedPaymentApplicationId={selectedPaymentApplicationId} onOpenProject={openProject} onOpenContract={openContract} />
       ) : view === 'permit-approvals' ? (
         <PermitApprovalsPage clients={clients} projects={projects} permitApprovals={permits} selectedPermitId={selectedPermitId} onOpenProject={openProject} />
       ) : view === 'project-documents' ? (
