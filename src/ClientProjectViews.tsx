@@ -4,6 +4,7 @@ import {
 } from './generated/models/Craft_clientsModel'
 import { Craft_projectscraft_healthstatus } from './generated/models/Craft_projectsModel'
 import type { Craft_clients } from './generated/models/Craft_clientsModel'
+import type { Craft_employees } from './generated/models/Craft_employeesModel'
 import type { Craft_permitapprovals } from './generated/models/Craft_permitapprovalsModel'
 import type { Craft_projectdocuments } from './generated/models/Craft_projectdocumentsModel'
 import type { Craft_projectphases } from './generated/models/Craft_projectphasesModel'
@@ -49,6 +50,11 @@ const projectDocumentBelongsToProject = (projectDocument: Craft_projectdocuments
   const documentProjectIds = [projectDocument.craft_projectid, projectDocument._craft_project_value].filter(Boolean)
   const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
   return documentProjectIds.some((documentProjectId) => projectIds.includes(documentProjectId))
+}
+const employeeBelongsToProject = (project: Craft_projects, employee: Craft_employees) => {
+  const projectEmployeeIds = [project._craft_employeerecord_value, project.craft_projectmanagerid].filter(Boolean)
+  const employeeIds = [employee.craft_employeeid, employee.craft_employeeid1].filter(Boolean)
+  return projectEmployeeIds.some((projectEmployeeId) => employeeIds.includes(projectEmployeeId))
 }
 
 export function ClientPage({ clients, projects, onOpenProjects }: ClientProjectViewProps) {
@@ -517,6 +523,107 @@ export function VariationOrdersPage({ clients, projects, variationOrders, select
   )
 }
 
+export function EmployeesPage({ projects, employees, selectedEmployeeId, onOpenProject }: { projects: Craft_projects[]; employees: Craft_employees[]; selectedEmployeeId?: string | null; onOpenProject?: (project: Craft_projects) => void }) {
+  const [search, setSearch] = useState('')
+  const filteredEmployees = useMemo(() => {
+    const query = search.toLowerCase()
+    return employees.filter((employee) => {
+      const projectCount = projects.filter((project) => employeeBelongsToProject(project, employee)).length
+      return [employee.craft_fullname, employee.craft_employeeid1, employee.craft_employeeid, employee.craft_department, employee.craft_designation, employee.craft_emailaddress, employee.craft_employmentstatusname, `${projectCount} project${projectCount === 1 ? '' : 's'}`]
+        .some((value) => value?.toLowerCase().includes(query))
+    })
+  }, [employees, projects, search])
+  const [selectedEmployee, setSelectedEmployee] = useState<Craft_employees | null>(null)
+
+  useEffect(() => {
+    if (filteredEmployees.length === 0) {
+      setSelectedEmployee(null)
+      return
+    }
+
+    const matchingEmployee = selectedEmployeeId
+      ? filteredEmployees.find((employee) => employee.craft_employeeid === selectedEmployeeId)
+      : undefined
+    setSelectedEmployee((current) => matchingEmployee ?? (current && filteredEmployees.some((employee) => employee.craft_employeeid === current.craft_employeeid) ? current : filteredEmployees[0]))
+  }, [filteredEmployees, selectedEmployeeId])
+
+  const relatedProjects = selectedEmployee ? projects.filter((project) => employeeBelongsToProject(project, selectedEmployee)) : []
+
+  return (
+    <div className="entity-view">
+      <header className="entity-header">
+        <div><p className="eyebrow">Dubai ERP / Workforce</p><h1>Employees</h1><p className="subtitle">Review staffing assignments, department details, and linked project ownership.</p></div>
+      </header>
+      <section className="entity-toolbar">
+        <label className="search-field"><span>Search employees</span><input type="search" placeholder="Search name, department, project count..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <span className="result-count">Showing {filteredEmployees.length} records</span>
+      </section>
+      <div className="entity-content-grid">
+        <section className="table-panel entity-project-table">
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Employee</th><th>Department</th><th>Designation</th><th>Status</th><th>Projects</th><th>Joining date</th></tr></thead>
+              <tbody>
+                {filteredEmployees.map((employee) => {
+                  const projectCount = projects.filter((project) => employeeBelongsToProject(project, employee)).length
+                  return (
+                    <tr className={selectedEmployee?.craft_employeeid === employee.craft_employeeid ? 'selected-row' : ''} key={employee.craft_employeeid} onClick={() => setSelectedEmployee(employee)}>
+                      <td className="equipment-name">{employee.craft_fullname || employee.craft_employeeid1 || employee.craft_employeeid}<small>{employee.craft_employeeid1 || employee.craft_employeeid}</small></td>
+                      <td>{employee.craft_department || '-'}</td>
+                      <td>{employee.craft_designation || '-'}</td>
+                      <td>{employee.craft_employmentstatusname || 'Unknown'}</td>
+                      <td>{projectCount}</td>
+                      <td>{date(employee.craft_joiningdate)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {filteredEmployees.length === 0 && <p className="table-message">No employees match your search.</p>}
+        </section>
+        <aside className="details-panel entity-details-panel">
+          {selectedEmployee ? (
+            <div className="details-content">
+              <div className="panel-heading">
+                <div><p className="eyebrow">Employee details</p><h2>{selectedEmployee.craft_fullname || selectedEmployee.craft_employeeid1 || selectedEmployee.craft_employeeid}</h2></div>
+                <span className={`status status-${(selectedEmployee.craft_employmentstatusname || 'unknown').toLowerCase().replaceAll(' ', '-')}`}>{selectedEmployee.craft_employmentstatusname || 'Unknown'}</span>
+              </div>
+              <dl className="details-list">
+                <div><dt>Employee ID</dt><dd>{selectedEmployee.craft_employeeid1 || selectedEmployee.craft_employeeid}</dd></div>
+                <div><dt>Department</dt><dd>{selectedEmployee.craft_department || '-'}</dd></div>
+                <div><dt>Designation</dt><dd>{selectedEmployee.craft_designation || '-'}</dd></div>
+                <div><dt>Email</dt><dd>{selectedEmployee.craft_emailaddress || '-'}</dd></div>
+                <div><dt>Phone</dt><dd>{selectedEmployee.craft_phonenumber || '-'}</dd></div>
+                <div><dt>Nationality</dt><dd>{selectedEmployee.craft_nationality || '-'}</dd></div>
+                <div><dt>Visa status</dt><dd>{selectedEmployee.craft_visastatus || '-'}</dd></div>
+                <div><dt>Joining date</dt><dd>{date(selectedEmployee.craft_joiningdate)}</dd></div>
+                <div><dt>Salary</dt><dd>{money(selectedEmployee.craft_salaryaed)}</dd></div>
+                <div><dt>Internal notes</dt><dd>{selectedEmployee.craft_internalnotes || '-'}</dd></div>
+              </dl>
+              <section className="related-record-details">
+                <p className="eyebrow">Related projects</p>
+                {relatedProjects.length > 0 ? (
+                  <>
+                    <div className="related-record-list">
+                      {relatedProjects.map((project) => (
+                        <button className="related-project related-project-link" type="button" key={project.craft_projectid} onClick={() => onOpenProject?.(project)}>
+                          <span>{project.craft_projectname || project.craft_projectid1 || project.craft_projectid}</span>
+                          <small>{project.craft_location || 'Location unavailable'} · {healthStatus(project)} · {project.craft_completionpercentage ?? 0}% complete</small>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : <p className="empty-widget">No related project records found.</p>}
+              </section>
+            </div>
+          ) : <div className="empty-details"><strong>Select an employee</strong><span>Employee and related project details will appear here.</span></div>}
+        </aside>
+      </div>
+    </div>
+  )
+}
+
 export function ProjectDocumentsPage({ clients, projects, projectDocuments, selectedProjectDocumentId, onOpenProject }: { clients: Craft_clients[]; projects: Craft_projects[]; projectDocuments: Craft_projectdocuments[]; selectedProjectDocumentId?: string | null; onOpenProject?: (project: Craft_projects) => void }) {
   const [search, setSearch] = useState('')
   const filteredProjectDocuments = useMemo(() => {
@@ -617,7 +724,7 @@ export function ProjectDocumentsPage({ clients, projects, projectDocuments, sele
   )
 }
 
-export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], projectDocuments = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, onOpenProjectDocument, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; projectDocuments?: Craft_projectdocuments[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void; onOpenProjectDocument?: (projectDocument: Craft_projectdocuments) => void }) {
+export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], projectDocuments = [], employees = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, onOpenProjectDocument, onOpenEmployee, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; projectDocuments?: Craft_projectdocuments[]; employees?: Craft_employees[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void; onOpenProjectDocument?: (projectDocument: Craft_projectdocuments) => void; onOpenEmployee?: (employee: Craft_employees) => void }) {
   const [search, setSearch] = useState('')
   const [clientFilter, setClientFilter] = useState(selectedClientId)
   const [selectedProject, setSelectedProject] = useState<Craft_projects | null>(null)
@@ -681,6 +788,7 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
   const relatedSafetyIncidents = selectedProject ? safetyIncidents.filter((incident) => incidentBelongsToProject(incident, selectedProject)) : []
   const relatedVariationOrders = selectedProject ? variationOrders.filter((variationOrder) => variationOrderBelongsToProject(variationOrder, selectedProject)) : []
   const relatedProjectDocuments = selectedProject ? projectDocuments.filter((projectDocument) => projectDocumentBelongsToProject(projectDocument, selectedProject)) : []
+  const relatedEmployees = selectedProject ? employees.filter((employee) => employeeBelongsToProject(selectedProject, employee)) : []
 
   return (
     <div className="entity-view">
@@ -708,6 +816,24 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
                 <div><dt>Total revenue</dt><dd>{money(selectedProject.craft_totalrevenue)}</dd></div>
                 <div><dt>Total cost</dt><dd>{money(selectedProject.craft_totalcost)}</dd></div>
               </dl>
+
+              <div className="related-projects">
+                <div className="related-heading">
+                  <h3>Employees</h3>
+                </div>
+                <div className="related-record-list">
+                {relatedEmployees.length > 0 ? (
+                  relatedEmployees.map((employee) => (
+                    <button className="related-project" type="button" key={employee.craft_employeeid} onClick={() => onOpenEmployee?.(employee)}>
+                      <span>{employee.craft_fullname || employee.craft_employeeid1 || employee.craft_employeeid}</span>
+                      <small>{employee.craft_designation || 'Role unavailable'} · {employee.craft_department || 'Department unavailable'} · {employee.craft_employmentstatusname || 'Status unavailable'}</small>
+                    </button>
+                  ))
+                ) : (
+                  <p className="empty-widget">No employees connected to this project.</p>
+                )}
+                </div>
+              </div>
 
               <div className="related-projects">
                 <div className="related-heading">

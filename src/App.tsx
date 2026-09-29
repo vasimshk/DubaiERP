@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { OperationsCommandCenter } from './OperationsCommandCenter'
-import { ClientPage, PermitApprovalsPage, ProjectDocumentsPage, ProjectPhasesPage, ProjectsPage, SafetyIncidentsPage, VariationOrdersPage } from './ClientProjectViews'
+import { ClientPage, EmployeesPage, PermitApprovalsPage, ProjectDocumentsPage, ProjectPhasesPage, ProjectsPage, SafetyIncidentsPage, VariationOrdersPage } from './ClientProjectViews'
 import { ExecutiveSummary } from './ExecutiveSummary'
 import type { Craft_clients } from './generated/models/Craft_clientsModel'
 import type { Craft_contract1s } from './generated/models/Craft_contract1sModel'
@@ -463,6 +463,7 @@ function App() {
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
   const [selectedVariationOrderId, setSelectedVariationOrderId] = useState<string | null>(null)
   const [selectedProjectDocumentId, setSelectedProjectDocumentId] = useState<string | null>(null)
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -634,6 +635,11 @@ function App() {
     setView('project-documents')
   }
 
+  const openEmployee = (employee: Craft_employees) => {
+    setSelectedEmployeeId(employee.craft_employeeid)
+    setView('employees')
+  }
+
   const openProject = (project: Craft_projects) => {
     setProjectClientFilter('All clients')
     setSelectedProjectId(project.craft_projectid)
@@ -688,7 +694,7 @@ function App() {
       ) : view === 'clients' ? (
         <ClientPage clients={clients} projects={projects} onOpenProjects={openProjects} />
       ) : view === 'projects' ? (
-        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} safetyIncidents={incidents} variationOrders={variationOrders} projectDocuments={projectDocuments} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} onOpenSafetyIncident={openSafetyIncident} onOpenVariationOrder={openVariationOrder} onOpenProjectDocument={openProjectDocument} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
+        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} safetyIncidents={incidents} variationOrders={variationOrders} projectDocuments={projectDocuments} employees={employees} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} onOpenSafetyIncident={openSafetyIncident} onOpenVariationOrder={openVariationOrder} onOpenProjectDocument={openProjectDocument} onOpenEmployee={openEmployee} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
       ) : view === 'project-phases' ? (
         <ProjectPhasesPage clients={clients} projects={projects} projectPhases={projectPhases} selectedPhaseId={selectedPhaseId} onOpenProject={openProject} />
       ) : view === 'contracts' ? (
@@ -698,7 +704,7 @@ function App() {
       ) : view === 'daily-site-reports' ? (
         <RelationshipTablePage title="Daily Site Reports" subtitle="Follow project updates, manpower, and site conditions by report date." records={dailySiteReports as Record<string, any>[]} titleKeys={['craft_reportid', 'craft_dailysitereportid']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_reportdate', 'craft_workdescription', 'craft_weatherconditionname']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
       ) : view === 'employees' ? (
-        <RelationshipTablePage title="Employees" subtitle="Review workforce records and their linkage to active delivery work." records={employees as Record<string, any>[]} titleKeys={['craft_fullname', 'craft_employeeid1', 'craft_employeeid']} projectKeys={['craft_projectid']} metaKeys={['craft_designation', 'craft_department', 'craft_employmentstatusname']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+        <EmployeesPage projects={projects} employees={employees} selectedEmployeeId={selectedEmployeeId} onOpenProject={openProject} />
       ) : view === 'inspections' ? (
         <RelationshipTablePage title="Inspections" subtitle="Monitor inspection outcomes, corrective actions, and project quality performance." records={inspections as Record<string, any>[]} titleKeys={['craft_inspectionid1', 'craft_inspectionid']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_inspectiontypename', 'craft_inspectionresultname', 'craft_remarks']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
       ) : view === 'payment-applications' ? (
