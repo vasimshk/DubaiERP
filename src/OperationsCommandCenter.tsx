@@ -29,7 +29,7 @@ import {
 } from 'recharts'
 import type { CommandChart, CommandChartPoint, CommandCenterSource, CommandFilters, CommandMetric, CommandTable } from './services/operationsCommandCenterService'
 import { buildOperationsCommandCenter, emptyCommandFilters } from './services/operationsCommandCenterService'
-import { RecordDetailsDialog, TablePageSizeInput, type RecordDetailField } from './SortableTable'
+import { RecordDetailsDialog, TablePagination, type RecordDetailField } from './SortableTable'
 import './OperationalDashboard.css'
 
 type DashboardTab = 'overview' | 'charts' | 'tables'
@@ -62,10 +62,11 @@ const readCollapsedPanels = () => {
   }
 }
 
-function ChartPanel({ chart, collapsed, onCollapse, onDrilldown, onOpenTable, hiddenSeries, onToggleSeries }: {
+function ChartPanel({ chart, collapsed, onCollapse, onReset, onDrilldown, onOpenTable, hiddenSeries, onToggleSeries }: {
   chart: CommandChart
   collapsed: boolean
   onCollapse: () => void
+  onReset: () => void
   onDrilldown: (point: CommandChartPoint, chart: CommandChart) => void
   onOpenTable: (tableId: string) => void
   hiddenSeries: string[]
@@ -109,6 +110,7 @@ function ChartPanel({ chart, collapsed, onCollapse, onDrilldown, onOpenTable, hi
       <header className="ops-panel-header">
         <div className="ops-panel-heading-copy"><span className="ops-panel-section">{chart.category}</span><h3>{chart.title}</h3><p>{chart.description}</p></div>
         <div className="ops-panel-actions">
+          <button className="ops-icon-button" type="button" onClick={onReset} title="Reset chart" aria-label={`Reset ${chart.title} chart`}>↺</button>
           {chart.tableId && <button className="ops-icon-button" type="button" onClick={() => onOpenTable(chart.tableId!)} title="Open related table" aria-label="Open related table">↗</button>}
           <button className="ops-icon-button" type="button" onClick={onCollapse} title={collapsed ? 'Expand' : 'Collapse'} aria-label={collapsed ? 'Expand chart' : 'Collapse chart'} aria-expanded={!collapsed}>{collapsed ? '⌄' : '⌃'}</button>
         </div>
@@ -227,7 +229,15 @@ function OperationalTable({ table, onRowClick, collapsed, onCollapse }: { table:
     {!collapsed && <>
       <div className="ops-table-tools"><label><span>Search records</span><input type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(0) }} placeholder={`Search ${table.title.toLowerCase()}...`} /></label><span>{filteredCount} records</span></div>
       {visibleRows.length ? <div className="ops-table-scroll"><table className="ops-data-table"><thead><tr>{table.columns.map((column) => <th key={column.key} className={column.align === 'right' ? 'is-numeric' : ''}><button type="button" onClick={() => { setSort((current) => current.key === column.key ? { key: column.key, direction: current.direction === 'asc' ? 'desc' : 'asc' } : { key: column.key, direction: 'asc' }); setPage(0) }}>{column.label}{sort.key === column.key ? sort.direction === 'asc' ? ' ↑' : ' ↓' : ''}</button></th>)}</tr></thead><tbody>{visibleRows.map((item) => <tr key={item.id} className={item.projectIds.length ? 'is-drillable record-clickable' : 'record-clickable'} onClick={() => { if (item.projectIds.length) onRowClick(item); setRecordDetails(table.columns.map((column) => ({ label: column.label, value: item.cells[column.key]?.display ?? '—' }))) }} title={item.projectIds.length ? 'Click to view record details and filter dashboard to its projects' : 'Click to view record details'}>{table.columns.map((column) => { const value = item.cells[column.key]; return <td key={column.key} className={`${column.align === 'right' ? 'is-numeric' : ''} ${value?.tone ? `tone-text-${value.tone}` : ''}`}>{column.key === 'status' || column.key === 'health' || column.key === 'result' || column.key === 'severity' || column.key === 'ownership' || column.key === 'prequalified' ? <span className={`ops-status-badge tone-${value?.tone || 'neutral'}`}>{value?.display ?? 'Not recorded'}</span> : value?.display ?? '—'}</td> })}</tr>)}</tbody></table></div> : <div className="ops-empty-state"><strong>{search ? 'No matching records' : 'No records available'}</strong><p>{search ? 'Change the search to see other records.' : table.emptyMessage}</p></div>}
-      <footer className="ops-table-footer"><span>{filteredCount ? `${currentPage * pageSize + 1}-${Math.min((currentPage + 1) * pageSize, filteredCount)} of ${filteredCount}` : '0 records'}</span><label>Rows<TablePageSizeInput value={pageSize} onChange={(size) => { setPageSize(size); setPage(0) }} idPrefix={`ops-${table.id}-page-size`} /></label><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={!currentPage}>Previous</button><span>{pageCount ? currentPage + 1 : 0} / {pageCount}</span><button type="button" onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))} disabled={currentPage >= pageCount - 1}>Next</button></footer>
+      <TablePagination
+        itemCount={filteredCount}
+        page={currentPage}
+        pageCount={pageCount}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => { setPageSize(size); setPage(0) }}
+        className="sortable-table-pagination ops-table-pagination"
+      />
     </>}
     {recordDetails && <RecordDetailsDialog fields={recordDetails} onClose={() => setRecordDetails(null)} />}
   </section>
@@ -277,6 +287,26 @@ export function OperationsCommandCenter({ source, theme, loading = false, refres
     else set.add(key)
     return { ...current, [chartId]: [...set] }
   })
+  const resetChart = (chart: CommandChart) => {
+    setHiddenSeries((current) => {
+      if (!current[chart.id]) return current
+      const next = { ...current }
+      delete next[chart.id]
+      return next
+    })
+    setFilters((current) => {
+      if (chart.id === 'project-status' && current.drilldownLabel.startsWith('Status: ')) {
+        return { ...current, status: 'all', drilldownProjectIds: [], drilldownLabel: '' }
+      }
+      if (chart.id === 'project-type' && current.drilldownLabel.startsWith('Type: ')) {
+        return { ...current, projectType: 'all', drilldownProjectIds: [], drilldownLabel: '' }
+      }
+      if (current.drilldownLabel.startsWith(`${chart.title}:`)) {
+        return { ...current, drilldownProjectIds: [], drilldownLabel: '' }
+      }
+      return current
+    })
+  }
   const openTable = (tableId?: string) => {
     if (!tableId) return
     setSelectedTableId(tableId)
@@ -289,7 +319,7 @@ export function OperationsCommandCenter({ source, theme, loading = false, refres
     }
     openTable(relatedTable[metric.id])
   }
-  const renderChartPanels = (chartList: CommandChart[]) => chartList.map((item) => <ChartPanel key={item.id} chart={item} collapsed={collapsedPanels.has(item.id)} onCollapse={() => toggleCollapse(item.id)} onDrilldown={drillToPoint} onOpenTable={openTable} hiddenSeries={hiddenSeries[item.id] || []} onToggleSeries={(key) => toggleSeries(item.id, key)} />)
+  const renderChartPanels = (chartList: CommandChart[]) => chartList.map((item) => <ChartPanel key={item.id} chart={item} collapsed={collapsedPanels.has(item.id)} onCollapse={() => toggleCollapse(item.id)} onReset={() => resetChart(item)} onDrilldown={drillToPoint} onOpenTable={openTable} hiddenSeries={hiddenSeries[item.id] || []} onToggleSeries={(key) => toggleSeries(item.id, key)} />)
 
   return <div className="operational-dashboard">
     <header className="ops-header"><div><p className="ops-eyebrow">Dubai ERP / Operations</p><h1>Dubai ERP — Operations Command Center</h1><p className="ops-subtitle">Portfolio delivery, financial control, procurement and compliance in one live view.</p></div><div className="ops-header-actions"><div className="ops-refresh-meta"><span>Last refreshed</span><strong>{lastRefreshed ? lastRefreshed.toLocaleString() : 'Not refreshed yet'}</strong></div><button className="ops-refresh-button" type="button" onClick={onRefresh} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh data'}</button><button className="theme-toggle" type="button" aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`} aria-pressed={theme === 'gray'} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`} onClick={onToggleTheme}>{theme === 'light' ? <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20.2 15.4A8.5 8.5 0 0 1 8.6 3.8 8.5 8.5 0 1 0 20.2 15.4Z" /></svg> : <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></svg>}</button></div></header>

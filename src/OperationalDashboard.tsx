@@ -7,7 +7,7 @@ import {
   type DashboardTable,
   type OperationalDashboardSource,
 } from './services/operationalDashboardService'
-import { RecordDetailsDialog, TablePageSizeInput, type RecordDetailField } from './SortableTable'
+import { RecordDetailsDialog, TablePagination, type RecordDetailField } from './SortableTable'
 import './OperationalDashboard.css'
 
 type DashboardTab = 'overview' | 'analytics' | 'tables'
@@ -144,15 +144,15 @@ function DashboardDataTable({ table }: { table: DashboardTable }) {
       ) : (
         <div className="ops-table-empty"><strong>{search ? 'No matching rows' : 'No records to display'}</strong><p>{search ? 'Try a different search term.' : table.emptyMessage}</p></div>
       )}
-      <footer className="ops-table-footer">
-        <span>{filteredRows.length === 0 ? '0 records' : `${currentPage * pageSize + 1}-${Math.min((currentPage + 1) * pageSize, filteredRows.length)} of ${filteredRows.length}`}</span>
-        <div className="ops-table-pagination">
-          <label>Rows<TablePageSizeInput value={pageSize} onChange={(size) => { setPageSize(size); setPage(0) }} idPrefix={`dashboard-${table.id}-page-size`} /></label>
-          <button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={currentPage === 0}>Previous</button>
-          <span>{pageCount === 0 ? 0 : currentPage + 1} / {pageCount}</span>
-          <button type="button" onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))} disabled={currentPage >= pageCount - 1}>Next</button>
-        </div>
-      </footer>
+      <TablePagination
+        itemCount={filteredRows.length}
+        page={currentPage}
+        pageCount={pageCount}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => { setPageSize(size); setPage(0) }}
+        className="sortable-table-pagination ops-table-pagination"
+      />
       {recordDetails && <RecordDetailsDialog fields={recordDetails} onClose={() => setRecordDetails(null)} />}
     </section>
   )

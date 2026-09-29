@@ -153,67 +153,101 @@ export function SortableTable({ children, ...props }: { children: ReactNode; cla
 export function TablePageSizeInput({ value, onChange, idPrefix = 'table-page-size' }: { value: number; onChange: (value: number) => void; idPrefix?: string }) {
   const id = useId()
   const listId = `${idPrefix}-${id}`
+  const presetSizes = [10, 25, 50, 100]
+  const [customSelected, setCustomSelected] = useState(!presetSizes.includes(value))
   const [draft, setDraft] = useState(String(value))
 
   useEffect(() => {
     setDraft(String(value))
+    setCustomSelected(!presetSizes.includes(value))
   }, [value])
 
   const commitValue = () => {
     const nextValue = Number(draft)
-    if (Number.isInteger(nextValue) && nextValue > 0 && nextValue <= 1000) onChange(nextValue)
-    else setDraft(String(value))
+    if (Number.isInteger(nextValue) && nextValue > 0 && nextValue <= 1000) {
+      setCustomSelected(!presetSizes.includes(nextValue))
+      onChange(nextValue)
+    } else setDraft(String(value))
   }
 
   return (
-    <>
-      <input
-        className="table-page-size-input"
-        type="text"
-        inputMode="numeric"
+    <span className="table-page-size-control">
+      <select
+        className="table-page-size-select"
         aria-label="Rows per page"
-        list={listId}
-        value={draft}
+        value={customSelected ? 'custom' : String(value)}
         onChange={(event) => {
-          if (/^\d*$/.test(event.target.value)) setDraft(event.target.value)
-        }}
-        onBlur={commitValue}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            commitValue()
-            event.currentTarget.blur()
-          }
-          if (event.key === 'Escape') {
+          if (event.target.value === 'custom') {
+            setCustomSelected(true)
             setDraft(String(value))
-            event.currentTarget.blur()
+            return
           }
+          const nextValue = Number(event.target.value)
+          setCustomSelected(false)
+          onChange(nextValue)
         }}
-      />
-      <datalist id={listId}>
-        {[10, 25, 50, 100].map((size) => <option key={size} value={size} />)}
-      </datalist>
-    </>
+      >
+        {presetSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+        <option value="custom">Custom…</option>
+      </select>
+      {customSelected && (
+        <span className="table-page-size-custom">
+          <input
+            className="table-page-size-input"
+            type="text"
+            inputMode="numeric"
+            aria-label="Custom rows per page"
+            list={listId}
+            value={draft}
+            onChange={(event) => {
+              if (/^\d*$/.test(event.target.value)) setDraft(event.target.value)
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                commitValue()
+                event.currentTarget.blur()
+              }
+              if (event.key === 'Escape') setDraft(String(value))
+            }}
+          />
+          <datalist id={listId}>
+            {presetSizes.map((size) => <option key={size} value={size} />)}
+          </datalist>
+          <button
+            className="table-page-size-apply"
+            type="button"
+            disabled={!Number.isInteger(Number(draft)) || Number(draft) < 1 || Number(draft) > 1000}
+            onClick={commitValue}
+          >
+            Apply
+          </button>
+        </span>
+      )}
+    </span>
   )
 }
 
-export function TablePagination({ itemCount, page, pageCount, pageSize, onPageChange, onPageSizeChange }: {
+export function TablePagination({ itemCount, page, pageCount, pageSize, onPageChange, onPageSizeChange, className = 'sortable-table-pagination' }: {
   itemCount: number
   page: number
   pageCount: number
   pageSize: number
   onPageChange: (page: number) => void
   onPageSizeChange: (pageSize: number) => void
+  className?: string
 }) {
   const firstItem = itemCount === 0 ? 0 : page * pageSize + 1
   const lastItem = Math.min((page + 1) * pageSize, itemCount)
   return (
-    <div className="sortable-table-pagination">
+    <div className={className}>
       <span>{itemCount === 0 ? '0 records' : `${firstItem}–${lastItem} of ${itemCount}`}</span>
       <label>Rows per page <TablePageSizeInput value={pageSize} onChange={onPageSizeChange} /></label>
       <div className="sortable-table-page-controls">
+        <button type="button" onClick={() => onPageChange(0)} disabled={page === 0} aria-label="First page">«</button>
         <button type="button" onClick={() => onPageChange(Math.max(0, page - 1))} disabled={page === 0}>Previous</button>
-        <span>{pageCount === 0 ? 0 : page + 1} / {pageCount}</span>
+        <span className="sortable-table-page-status">{pageCount === 0 ? '0 / 0' : `${page + 1} / ${pageCount}`}</span>
         <button type="button" onClick={() => onPageChange(Math.min(pageCount - 1, page + 1))} disabled={page >= pageCount - 1}>Next</button>
+        <button type="button" onClick={() => onPageChange(Math.max(0, pageCount - 1))} disabled={pageCount === 0 || page >= pageCount - 1} aria-label="Last page">»</button>
       </div>
     </div>
   )
