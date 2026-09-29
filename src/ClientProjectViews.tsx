@@ -8,6 +8,7 @@ import type { Craft_permitapprovals } from './generated/models/Craft_permitappro
 import type { Craft_projectphases } from './generated/models/Craft_projectphasesModel'
 import type { Craft_projects } from './generated/models/Craft_projectsModel'
 import type { Craft_safetyincidents } from './generated/models/Craft_safetyincidentsModel'
+import type { Craft_variationorders } from './generated/models/Craft_variationordersModel'
 
 type ClientProjectViewProps = {
   clients: Craft_clients[]
@@ -37,6 +38,11 @@ const incidentBelongsToProject = (incident: Craft_safetyincidents, project: Craf
   const incidentProjectIds = [incident.craft_projectid, incident._craft_project_value].filter(Boolean)
   const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
   return incidentProjectIds.some((incidentProjectId) => projectIds.includes(incidentProjectId))
+}
+const variationOrderBelongsToProject = (variationOrder: Craft_variationorders, project: Craft_projects) => {
+  const variationProjectIds = [variationOrder.craft_projectid, variationOrder._craft_project_value].filter(Boolean)
+  const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
+  return variationProjectIds.some((variationProjectId) => projectIds.includes(variationProjectId))
 }
 
 export function ClientPage({ clients, projects, onOpenProjects }: ClientProjectViewProps) {
@@ -403,7 +409,109 @@ export function SafetyIncidentsPage({ clients, projects, incidents, selectedInci
   )
 }
 
-export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void }) {
+export function VariationOrdersPage({ clients, projects, variationOrders, selectedVariationOrderId, onOpenProject }: { clients: Craft_clients[]; projects: Craft_projects[]; variationOrders: Craft_variationorders[]; selectedVariationOrderId?: string | null; onOpenProject?: (project: Craft_projects) => void }) {
+  const [search, setSearch] = useState('')
+  const filteredVariationOrders = useMemo(() => {
+    const query = search.toLowerCase()
+    return variationOrders.filter((variationOrder) => {
+      const project = projects.find((candidate) => variationOrderBelongsToProject(variationOrder, candidate))
+      return [variationOrder.craft_variationorderid1, variationOrder.craft_variationorderid, variationOrder.craft_variationordernumber?.toString(), variationOrder.craft_reasonname, variationOrder.craft_statusname, variationOrder.craft_description, project?.craft_projectname, project?.craft_projectid1]
+        .some((value) => value?.toLowerCase().includes(query))
+    })
+  }, [projects, search, variationOrders])
+  const [selectedVariationOrder, setSelectedVariationOrder] = useState<Craft_variationorders | null>(null)
+
+  useEffect(() => {
+    if (filteredVariationOrders.length === 0) {
+      setSelectedVariationOrder(null)
+      return
+    }
+
+    const matchingVariationOrder = selectedVariationOrderId
+      ? filteredVariationOrders.find((variationOrder) => variationOrder.craft_variationorderid === selectedVariationOrderId)
+      : undefined
+    setSelectedVariationOrder((current) => matchingVariationOrder ?? (current && filteredVariationOrders.some((variationOrder) => variationOrder.craft_variationorderid === current.craft_variationorderid) ? current : filteredVariationOrders[0]))
+  }, [filteredVariationOrders, selectedVariationOrderId])
+
+  const selectedVariationOrderProject = selectedVariationOrder ? projects.find((project) => variationOrderBelongsToProject(selectedVariationOrder, project)) : undefined
+
+  return (
+    <div className="entity-view">
+      <header className="entity-header">
+        <div><p className="eyebrow">Dubai ERP / Change control</p><h1>Variation Orders</h1><p className="subtitle">Review approved changes, reasons, and cost impact for each project.</p></div>
+      </header>
+      <section className="entity-toolbar">
+        <label className="search-field"><span>Search variation orders</span><input type="search" placeholder="Search VO, reason, project..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <span className="result-count">Showing {filteredVariationOrders.length} records</span>
+      </section>
+      <div className="entity-content-grid">
+        <section className="table-panel entity-project-table">
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Variation order</th><th>Reason</th><th>Project</th><th>Status</th><th>Value</th><th>Approved date</th></tr></thead>
+              <tbody>
+                {filteredVariationOrders.map((variationOrder) => {
+                  const project = projects.find((candidate) => variationOrderBelongsToProject(variationOrder, candidate))
+                  return (
+                    <tr className={selectedVariationOrder?.craft_variationorderid === variationOrder.craft_variationorderid ? 'selected-row' : ''} key={variationOrder.craft_variationorderid} onClick={() => setSelectedVariationOrder(variationOrder)}>
+                      <td className="equipment-name">{variationOrder.craft_variationorderid1 || variationOrder.craft_variationordernumber || variationOrder.craft_variationorderid}<small>{variationOrder.craft_variationorderid}</small></td>
+                      <td>{variationOrder.craft_reasonname || 'Not recorded'}</td>
+                      <td>{project?.craft_projectname || project?.craft_projectid1 || project?.craft_projectid || '-'}</td>
+                      <td>{variationOrder.craft_statusname || 'Unknown'}</td>
+                      <td>{money(variationOrder.craft_variationordervalueaed)}</td>
+                      <td>{date(variationOrder.craft_approveddate)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {filteredVariationOrders.length === 0 && <p className="table-message">No variation orders match your search.</p>}
+        </section>
+        <aside className="details-panel entity-details-panel">
+          {selectedVariationOrder ? (
+            <div className="details-content">
+              <div className="panel-heading">
+                <div><p className="eyebrow">Variation order details</p><h2>{selectedVariationOrder.craft_variationorderid1 || selectedVariationOrder.craft_variationorderid}</h2></div>
+                <span className={`status status-${(selectedVariationOrder.craft_statusname || 'unknown').toLowerCase().replaceAll(' ', '-')}`}>{selectedVariationOrder.craft_statusname || 'Unknown'}</span>
+              </div>
+              <dl className="details-list">
+                <div><dt>Reason</dt><dd>{selectedVariationOrder.craft_reasonname || '-'}</dd></div>
+                <div><dt>Status</dt><dd>{selectedVariationOrder.craft_statusname || '-'}</dd></div>
+                <div><dt>Submitted date</dt><dd>{date(selectedVariationOrder.craft_submitteddate)}</dd></div>
+                <div><dt>Approved date</dt><dd>{date(selectedVariationOrder.craft_approveddate)}</dd></div>
+                <div><dt>Value</dt><dd>{money(selectedVariationOrder.craft_variationordervalueaed)}</dd></div>
+                <div><dt>Time impact</dt><dd>{selectedVariationOrder.craft_timeimpactdays == null ? '-' : `${selectedVariationOrder.craft_timeimpactdays} days`}</dd></div>
+                <div><dt>Approved by</dt><dd>{selectedVariationOrder.craft_approvedby || '-'}</dd></div>
+                <div><dt>Description</dt><dd>{selectedVariationOrder.craft_description || '-'}</dd></div>
+                <div><dt>Internal notes</dt><dd>{selectedVariationOrder.craft_internalnotes || '-'}</dd></div>
+              </dl>
+              <section className="related-record-details">
+                <p className="eyebrow">Related project</p>
+                {selectedVariationOrderProject ? (
+                  <>
+                    <button className="related-project related-project-link" type="button" onClick={() => onOpenProject?.(selectedVariationOrderProject)}>
+                      <span>{selectedVariationOrderProject.craft_projectname || selectedVariationOrderProject.craft_projectid1 || selectedVariationOrderProject.craft_projectid}</span>
+                      <small>Open project record</small>
+                    </button>
+                    <dl className="details-list">
+                      <div><dt>Client</dt><dd>{clientName(clients.find((client) => projectClientId(selectedVariationOrderProject) === client.craft_clientid))}</dd></div>
+                      <div><dt>Location</dt><dd>{selectedVariationOrderProject.craft_location || '-'}</dd></div>
+                      <div><dt>Health</dt><dd>{healthStatus(selectedVariationOrderProject)}</dd></div>
+                      <div><dt>Completion</dt><dd>{selectedVariationOrderProject.craft_completionpercentage ?? 0}%</dd></div>
+                    </dl>
+                  </>
+                ) : <p className="empty-widget">No related project record found.</p>}
+              </section>
+            </div>
+          ) : <div className="empty-details"><strong>Select a variation order</strong><span>Variation order and project details will appear here.</span></div>}
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void }) {
   const [search, setSearch] = useState('')
   const [clientFilter, setClientFilter] = useState(selectedClientId)
   const [selectedProject, setSelectedProject] = useState<Craft_projects | null>(null)
@@ -465,6 +573,7 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
   const relatedPhases = selectedProject ? projectPhases.filter((phase) => phaseBelongsToProject(phase, selectedProject)) : []
   const relatedPermitApprovals = selectedProject ? permitApprovals.filter((permit) => permitBelongsToProject(permit, selectedProject)) : []
   const relatedSafetyIncidents = selectedProject ? safetyIncidents.filter((incident) => incidentBelongsToProject(incident, selectedProject)) : []
+  const relatedVariationOrders = selectedProject ? variationOrders.filter((variationOrder) => variationOrderBelongsToProject(variationOrder, selectedProject)) : []
 
   return (
     <div className="entity-view">
@@ -547,6 +656,24 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
                   ))
                 ) : (
                   <p className="empty-widget">No safety incidents connected to this project.</p>
+                )}
+                </div>
+              </div>
+
+              <div className="related-projects">
+                <div className="related-heading">
+                  <h3>Variation Orders</h3>
+                </div>
+                <div className="related-record-list">
+                {relatedVariationOrders.length > 0 ? (
+                  relatedVariationOrders.map((variationOrder) => (
+                    <button className="related-project" type="button" key={variationOrder.craft_variationorderid} onClick={() => onOpenVariationOrder?.(variationOrder)}>
+                      <span>{variationOrder.craft_variationorderid1 || variationOrder.craft_variationordernumber || variationOrder.craft_variationorderid}</span>
+                      <small>{variationOrder.craft_reasonname || 'Reason unavailable'} · {variationOrder.craft_statusname || 'Status unavailable'} · {money(variationOrder.craft_variationordervalueaed)}</small>
+                    </button>
+                  ))
+                ) : (
+                  <p className="empty-widget">No variation orders connected to this project.</p>
                 )}
                 </div>
               </div>

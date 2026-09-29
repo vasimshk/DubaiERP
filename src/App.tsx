@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { OperationsCommandCenter } from './OperationsCommandCenter'
-import { ClientPage, PermitApprovalsPage, ProjectPhasesPage, ProjectsPage, SafetyIncidentsPage } from './ClientProjectViews'
+import { ClientPage, PermitApprovalsPage, ProjectPhasesPage, ProjectsPage, SafetyIncidentsPage, VariationOrdersPage } from './ClientProjectViews'
 import { ExecutiveSummary } from './ExecutiveSummary'
 import type { Craft_clients } from './generated/models/Craft_clientsModel'
 import type { Craft_contract1s } from './generated/models/Craft_contract1sModel'
@@ -461,6 +461,7 @@ function App() {
   const [selectedPermitId, setSelectedPermitId] = useState<string | null>(null)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
+  const [selectedVariationOrderId, setSelectedVariationOrderId] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -622,6 +623,11 @@ function App() {
     setView('safety-incidents')
   }
 
+  const openVariationOrder = (variationOrder: Craft_variationorders) => {
+    setSelectedVariationOrderId(variationOrder.craft_variationorderid)
+    setView('variation-orders')
+  }
+
   const openProject = (project: Craft_projects) => {
     setProjectClientFilter('All clients')
     setSelectedProjectId(project.craft_projectid)
@@ -676,7 +682,7 @@ function App() {
       ) : view === 'clients' ? (
         <ClientPage clients={clients} projects={projects} onOpenProjects={openProjects} />
       ) : view === 'projects' ? (
-        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} safetyIncidents={incidents} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} onOpenSafetyIncident={openSafetyIncident} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
+        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} safetyIncidents={incidents} variationOrders={variationOrders} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} onOpenSafetyIncident={openSafetyIncident} onOpenVariationOrder={openVariationOrder} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
       ) : view === 'project-phases' ? (
         <ProjectPhasesPage clients={clients} projects={projects} projectPhases={projectPhases} selectedPhaseId={selectedPhaseId} onOpenProject={openProject} />
       ) : view === 'contracts' ? (
@@ -699,10 +705,10 @@ function App() {
         <RelationshipTablePage title="Purchase Orders" subtitle="Review vendor commitments, project coverage, and order status." records={purchaseOrders as Record<string, any>[]} titleKeys={['craft_purchaseorderid1', 'craft_purchaseorderid']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_purchaseordertypename', 'craft_statusname', 'craft_amountaed']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
       ) : view === 'safety-incidents' ? (
         <SafetyIncidentsPage clients={clients} projects={projects} incidents={incidents} selectedIncidentId={selectedIncidentId} onOpenProject={openProject} />
+      ) : view === 'variation-orders' ? (
+        <VariationOrdersPage clients={clients} projects={projects} variationOrders={variationOrders} selectedVariationOrderId={selectedVariationOrderId} onOpenProject={openProject} />
       ) : view === 'suppliers' ? (
         <RelationshipTablePage title="Suppliers" subtitle="Maintain supplier records and their project-linked supply footprint." records={suppliers as Record<string, any>[]} titleKeys={['craft_companyname', 'craft_supplierid1', 'craft_supplierid']} projectKeys={['craft_projectid']} metaKeys={['craft_category', 'craft_statusname', 'craft_paymentterms']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
-      ) : view === 'variation-orders' ? (
-        <RelationshipTablePage title="Variation Orders" subtitle="Track approved changes and cost adjustments against the relevant project." records={variationOrders as Record<string, any>[]} titleKeys={['craft_variationorderid1', 'craft_variationorderid']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_variationtype', 'craft_statusname', 'craft_amountaed']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
       ) : view === 'work-packages' ? (
         <RelationshipTablePage title="Work Packages" subtitle="Monitor work-package scope, contractor, and project traceability." records={workPackages as Record<string, any>[]} titleKeys={['craft_workpackagename', 'craft_workpackageid']} projectKeys={['craft_projectid', '_craft_project_value', 'craft_projectphase']} metaKeys={['craft_contractorid', 'craft_statusname', 'craft_packagevalueaed']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
       ) : (
