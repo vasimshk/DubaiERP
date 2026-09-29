@@ -74,7 +74,7 @@ The navigation includes Clients, Projects, Contracts, Contractors, Daily Site Re
 │       ├── appschemas/dataSourcesInfo.ts   # SDK data-source map (generated)
 │       └── dataverse/                      # Dataverse schema snapshots
 ├── public/                                 # Static assets
-├── index.css                               # Root stylesheet retained from the starter
+├── index.css                               # Root-level stylesheet (not imported by src/main.tsx)
 ├── src/
 │   ├── generated/
 │   │   ├── models/                         # Generated Dataverse models
@@ -212,7 +212,7 @@ The repository is configured for a Power Apps Code App build (`dist` and `index.
 
 ## Git workflow
 
-The observed repository uses `master` as its initial/default branch and has feature branches named `feature/*`. There is no checked-in policy specifying pull-request requirements, merge strategy, or release tagging. As of this documentation update, the current branch is `feature/gray-theme` at commit `a3c0ecd`.
+The observed repository uses `master` as its initial/default branch and has feature branches named `feature/*`. There is no checked-in policy specifying pull-request requirements, merge strategy, or release tagging. The current checkout and HEAD are recorded in [Current status](#current-status).
 
 Typical branch and commit workflow:
 
@@ -229,7 +229,7 @@ Use `git status` before staging and stage only intended files; do not commit cre
 
 ## Development history
 
-The existing README was the Vite starter template and was last changed in the initial commit. The following milestones are grouped from the repository history and current implementation:
+The README in the initial commit was the Vite starter template; project documentation was added in `f8fc491`. The following milestones are grouped from the repository history and current implementation:
 
 ### Dashboard
 
@@ -242,20 +242,20 @@ The existing README was the Vite starter template and was last changed in the in
 - Added 1:N-related navigation for Employee–Project, Project–Contract, Contractor–Contract, and Project/Phase/Contractor–Work Package.
 - Added Project/Employee–Inspection and Project/Contract–Payment Application links.
 - Added project/phase/permit approval and Daily Site Report related-record views.
-- These changes are represented by relationship commits including `ecc9d9e`, `32e88b8`, `f28c5ce`, `006b9f1`, `6ef9d16`, `664106c`, `ec9a987`, `f97f944`, `8a2bf57`, and `4d39b93` (2026-09-28 to 2026-09-29).
+- These changes are represented by relationship commits including `ecc9d9e`, `32e88b8`, `f28c5ce`, `006b9f1`, `6ef9d16`, `664106c`, `ec9a987`, `f97f944`, `8a2bf57`, and `4d39b93` (2026-09-28 to 2026-09-29). The commit messages describe the relationship additions as 1:N; the checked-in client schemas do not establish the live environment's cardinality or cascade rules.
 
 ### UI and table improvements
 
 - Added the shared sortable table, pagination, row details, navigation toggle, theme switch, and related responsive/visual styling (`a3c0ecd`, 2026-09-29).
-- Current source also contains uncommitted follow-up pagination, hamburger-collapse styling, and chart-reset changes that are not part of the current `HEAD` commit as of this update.
+- The subsequent `f8fc491` commit includes follow-up pagination controls, hamburger-collapse styling, and per-chart reset behavior alongside its README update.
 
 ## Current status
 
-- **Branch:** `feature/gray-theme`
-- **HEAD:** `a3c0ecd` — “Update: added Hamburger, sorting, pagination, theme switching option”
+- **Branch:** `feature/audit-readme` (the local `feature/gray-theme` branch and `origin/feature/gray-theme` also point to this HEAD in the inspected repository state).
+- **HEAD:** `f8fc491` — “Update: updated README.md file”
 - **Implemented:** multi-entity Dataverse read views, equipment create/update, operational and executive dashboards, lookup-based related-record navigation, and the table/theme/navigation interactions listed above.
-- **Work in progress at documentation time:** the working tree already contained uncommitted updates to `src/App.css`, `src/OperationalDashboard.tsx`, `src/OperationsCommandCenter.tsx`, and `src/SortableTable.tsx`. Those source changes are not included in `a3c0ecd`; this README update does not change them.
-- No project roadmap or explicit planned feature list is checked in. The deployment process and the live Dataverse relationship metadata remain to be confirmed/documented.
+- No project roadmap or explicit planned feature list is checked in; no additional feature is documented as planned. The deployment process and the live Dataverse relationship metadata remain to be confirmed/documented.
+- The inspected working tree was clean before this README audit. The `f8fc491` commit includes the follow-up pagination, navigation CSS, chart-reset source changes, and README changes.
 
 ## Known limitations and troubleshooting
 
