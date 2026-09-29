@@ -29,6 +29,7 @@ import {
 } from 'recharts'
 import type { CommandChart, CommandChartPoint, CommandCenterSource, CommandFilters, CommandMetric, CommandTable } from './services/operationsCommandCenterService'
 import { buildOperationsCommandCenter, emptyCommandFilters } from './services/operationsCommandCenterService'
+import { RecordDetailsDialog, TablePageSizeInput, type RecordDetailField } from './SortableTable'
 import './OperationalDashboard.css'
 
 type DashboardTab = 'overview' | 'charts' | 'tables'
@@ -36,16 +37,19 @@ type Tone = 'green' | 'amber' | 'red' | 'neutral'
 
 type OperationsCommandCenterProps = {
   source: CommandCenterSource
+  theme: 'light' | 'gray'
   loading?: boolean
   refreshing?: boolean
   error?: string | null
   lastRefreshed?: Date | null
   onRefresh: () => void
+  onToggleTheme: () => void
 }
 
 const chartColors = ['#087f80', '#c58a25', '#31806c', '#ad4b42', '#527b98', '#8b688b', '#8b9c4c', '#9ba9ad']
 const sections = ['Portfolio Health', 'Financial Control', 'Project Performance', 'Contractor & Workforce', 'Procurement & Equipment', 'Risk & Compliance', 'Executive Decision Matrix'] as const
 const collapseStorageKey = 'dubai-erp-command-center-collapsed-panels'
+const keyMetricIds = ['delayed-projects', 'budget-overrun', 'pending-payments', 'open-incidents', 'permits-expiring']
 const formatNumber = (value: number) => new Intl.NumberFormat('en', { maximumFractionDigits: 1 }).format(value)
 
 const readCollapsedPanels = () => {
@@ -180,9 +184,9 @@ function GaugeVisual({ chart, onDrilldown }: { chart: CommandChart; onDrilldown:
   </button>
 }
 
-function MetricIndicator({ metric, onClick }: { metric: CommandMetric; onClick: () => void }) {
+function MetricIndicator({ metric, onClick, secondary = false }: { metric: CommandMetric; onClick: () => void; secondary?: boolean }) {
   const gauge = metric.gauge != null
-  return <button className={`ops-metric-strip tone-${metric.tone}${gauge ? ' has-gauge' : ''}`} type="button" onClick={onClick} title={`Filter dashboard to: ${metric.label}`}>
+  return <button className={`ops-metric-strip tone-${metric.tone}${gauge ? ' has-gauge' : ''}${secondary ? ' is-secondary-kpi' : ''}`} type="button" onClick={onClick} title={`Filter dashboard to: ${metric.label}`}>
     {gauge && <span className="ops-metric-ring" style={{ '--ring-value': `${Math.max(0, Math.min(metric.gauge ?? 0, 100)) * 3.6}deg`, '--ring-color': toneColor(metric.tone) } as React.CSSProperties}><i /></span>}
     {!gauge && <i className="ops-metric-status" />}
     <span className="ops-metric-copy"><span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.detail}</small></span>
@@ -199,6 +203,10 @@ function OperationalTable({ table, onRowClick, collapsed, onCollapse }: { table:
   const [sort, setSort] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: table.columns[0]?.key || '', direction: 'asc' })
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(10)
+  const [recordDetails, setRecordDetails] = useState<RecordDetailField[] | null>(null)
+  const filteredCount = table.rows.filter((item) => !deferredSearch.trim() || Object.values(item.cells).some((value) => value.display.toLowerCase().includes(deferredSearch.trim().toLowerCase()))).length
+  const pageCount = Math.ceil(filteredCount / pageSize)
+  const currentPage = Math.min(page, Math.max(0, pageCount - 1))
   const visibleRows = useMemo(() => {
     const query = deferredSearch.trim().toLowerCase()
     const filtered = table.rows.filter((item) => !query || Object.values(item.cells).some((value) => value.display.toLowerCase().includes(query)))
@@ -207,22 +215,25 @@ function OperationalTable({ table, onRowClick, collapsed, onCollapse }: { table:
       const second = right.cells[sort.key]?.sortValue ?? ''
       const order = typeof first === 'number' && typeof second === 'number' ? first - second : String(first).localeCompare(String(second), undefined, { numeric: true, sensitivity: 'base' })
       return sort.direction === 'asc' ? order : -order
-    }).slice(page * pageSize, (page + 1) * pageSize)
-  }, [deferredSearch, page, pageSize, sort.direction, sort.key, table.rows])
-  const filteredCount = table.rows.filter((item) => !deferredSearch.trim() || Object.values(item.cells).some((value) => value.display.toLowerCase().includes(deferredSearch.trim().toLowerCase()))).length
-  const pageCount = Math.ceil(filteredCount / pageSize)
+    }).slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+  }, [deferredSearch, currentPage, pageSize, sort.direction, sort.key, table.rows])
+
+  useEffect(() => {
+    if (page !== currentPage) setPage(currentPage)
+  }, [currentPage, page])
 
   return <section className={`ops-panel ops-table-panel${collapsed ? ' is-collapsed' : ''}`}>
     <header className="ops-panel-header"><div className="ops-panel-heading-copy"><span className="ops-panel-section">{table.section}</span><h3>{table.title}</h3><p>{table.description}</p></div><div className="ops-panel-actions"><button className="ops-icon-button" type="button" title={collapsed ? 'Expand' : 'Collapse'} aria-label={collapsed ? 'Expand table' : 'Collapse table'} aria-expanded={!collapsed} onClick={onCollapse}>{collapsed ? '⌄' : '⌃'}</button></div></header>
     {!collapsed && <>
       <div className="ops-table-tools"><label><span>Search records</span><input type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(0) }} placeholder={`Search ${table.title.toLowerCase()}...`} /></label><span>{filteredCount} records</span></div>
-      {visibleRows.length ? <div className="ops-table-scroll"><table className="ops-data-table"><thead><tr>{table.columns.map((column) => <th key={column.key} className={column.align === 'right' ? 'is-numeric' : ''}><button type="button" onClick={() => { setSort((current) => current.key === column.key ? { key: column.key, direction: current.direction === 'asc' ? 'desc' : 'asc' } : { key: column.key, direction: 'asc' }); setPage(0) }}>{column.label}{sort.key === column.key ? sort.direction === 'asc' ? ' ↑' : ' ↓' : ''}</button></th>)}</tr></thead><tbody>{visibleRows.map((item) => <tr key={item.id} className={item.projectIds.length ? 'is-drillable' : ''} onClick={() => item.projectIds.length && onRowClick(item)} title={item.projectIds.length ? 'Click to filter dashboard to this record’s projects' : undefined}>{table.columns.map((column) => { const value = item.cells[column.key]; return <td key={column.key} className={`${column.align === 'right' ? 'is-numeric' : ''} ${value?.tone ? `tone-text-${value.tone}` : ''}`}>{column.key === 'status' || column.key === 'health' || column.key === 'result' || column.key === 'severity' || column.key === 'ownership' || column.key === 'prequalified' ? <span className={`ops-status-badge tone-${value?.tone || 'neutral'}`}>{value?.display ?? 'Not recorded'}</span> : value?.display ?? '—'}</td> })}</tr>)}</tbody></table></div> : <div className="ops-empty-state"><strong>{search ? 'No matching records' : 'No records available'}</strong><p>{search ? 'Change the search to see other records.' : table.emptyMessage}</p></div>}
-      <footer className="ops-table-footer"><span>{filteredCount ? `${page * pageSize + 1}-${Math.min((page + 1) * pageSize, filteredCount)} of ${filteredCount}` : '0 records'}</span><label>Rows<select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(0) }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={!page}>Previous</button><span>{pageCount ? page + 1 : 0} / {pageCount}</span><button type="button" onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))} disabled={page >= pageCount - 1}>Next</button></footer>
+      {visibleRows.length ? <div className="ops-table-scroll"><table className="ops-data-table"><thead><tr>{table.columns.map((column) => <th key={column.key} className={column.align === 'right' ? 'is-numeric' : ''}><button type="button" onClick={() => { setSort((current) => current.key === column.key ? { key: column.key, direction: current.direction === 'asc' ? 'desc' : 'asc' } : { key: column.key, direction: 'asc' }); setPage(0) }}>{column.label}{sort.key === column.key ? sort.direction === 'asc' ? ' ↑' : ' ↓' : ''}</button></th>)}</tr></thead><tbody>{visibleRows.map((item) => <tr key={item.id} className={item.projectIds.length ? 'is-drillable record-clickable' : 'record-clickable'} onClick={() => { if (item.projectIds.length) onRowClick(item); setRecordDetails(table.columns.map((column) => ({ label: column.label, value: item.cells[column.key]?.display ?? '—' }))) }} title={item.projectIds.length ? 'Click to view record details and filter dashboard to its projects' : 'Click to view record details'}>{table.columns.map((column) => { const value = item.cells[column.key]; return <td key={column.key} className={`${column.align === 'right' ? 'is-numeric' : ''} ${value?.tone ? `tone-text-${value.tone}` : ''}`}>{column.key === 'status' || column.key === 'health' || column.key === 'result' || column.key === 'severity' || column.key === 'ownership' || column.key === 'prequalified' ? <span className={`ops-status-badge tone-${value?.tone || 'neutral'}`}>{value?.display ?? 'Not recorded'}</span> : value?.display ?? '—'}</td> })}</tr>)}</tbody></table></div> : <div className="ops-empty-state"><strong>{search ? 'No matching records' : 'No records available'}</strong><p>{search ? 'Change the search to see other records.' : table.emptyMessage}</p></div>}
+      <footer className="ops-table-footer"><span>{filteredCount ? `${currentPage * pageSize + 1}-${Math.min((currentPage + 1) * pageSize, filteredCount)} of ${filteredCount}` : '0 records'}</span><label>Rows<TablePageSizeInput value={pageSize} onChange={(size) => { setPageSize(size); setPage(0) }} idPrefix={`ops-${table.id}-page-size`} /></label><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={!currentPage}>Previous</button><span>{pageCount ? currentPage + 1 : 0} / {pageCount}</span><button type="button" onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))} disabled={currentPage >= pageCount - 1}>Next</button></footer>
     </>}
+    {recordDetails && <RecordDetailsDialog fields={recordDetails} onClose={() => setRecordDetails(null)} />}
   </section>
 }
 
-export function OperationsCommandCenter({ source, loading = false, refreshing = false, error, lastRefreshed, onRefresh }: OperationsCommandCenterProps) {
+export function OperationsCommandCenter({ source, theme, loading = false, refreshing = false, error, lastRefreshed, onRefresh, onToggleTheme }: OperationsCommandCenterProps) {
   const [filters, setFilters] = useState<CommandFilters>(emptyCommandFilters)
   const [tab, setTab] = useState<DashboardTab>('overview')
   const [activeSection, setActiveSection] = useState<string>('Portfolio Health')
@@ -233,6 +244,10 @@ export function OperationsCommandCenter({ source, loading = false, refreshing = 
   const drilldownActive = filters.drilldownProjectIds.length > 0
   const selectedTable = model.tables.find((item) => item.id === selectedTableId) ?? model.tables[0]
   const expandedCharts = model.charts.filter((item) => item.category === activeSection)
+  const keyMetrics = keyMetricIds
+    .map((id) => model.metrics.find((metric) => metric.id === id))
+    .filter((metric): metric is CommandMetric => metric != null)
+  const keyMetricIdSet = new Set(keyMetrics.map((metric) => metric.id))
 
   useEffect(() => {
     try {
@@ -277,7 +292,17 @@ export function OperationsCommandCenter({ source, loading = false, refreshing = 
   const renderChartPanels = (chartList: CommandChart[]) => chartList.map((item) => <ChartPanel key={item.id} chart={item} collapsed={collapsedPanels.has(item.id)} onCollapse={() => toggleCollapse(item.id)} onDrilldown={drillToPoint} onOpenTable={openTable} hiddenSeries={hiddenSeries[item.id] || []} onToggleSeries={(key) => toggleSeries(item.id, key)} />)
 
   return <div className="operational-dashboard">
-    <header className="ops-header"><div><p className="ops-eyebrow">Dubai ERP / Operations</p><h1>Dubai ERP — Operations Command Center</h1><p className="ops-subtitle">Portfolio delivery, financial control, procurement and compliance in one live view.</p></div><div className="ops-header-actions"><div className="ops-refresh-meta"><span>Last refreshed</span><strong>{lastRefreshed ? lastRefreshed.toLocaleString() : 'Not refreshed yet'}</strong></div><button className="ops-refresh-button" type="button" onClick={onRefresh} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh data'}</button></div></header>
+    <header className="ops-header"><div><p className="ops-eyebrow">Dubai ERP / Operations</p><h1>Dubai ERP — Operations Command Center</h1><p className="ops-subtitle">Portfolio delivery, financial control, procurement and compliance in one live view.</p></div><div className="ops-header-actions"><div className="ops-refresh-meta"><span>Last refreshed</span><strong>{lastRefreshed ? lastRefreshed.toLocaleString() : 'Not refreshed yet'}</strong></div><button className="ops-refresh-button" type="button" onClick={onRefresh} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh data'}</button><button className="theme-toggle" type="button" aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`} aria-pressed={theme === 'gray'} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`} onClick={onToggleTheme}>{theme === 'light' ? <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20.2 15.4A8.5 8.5 0 0 1 8.6 3.8 8.5 8.5 0 1 0 20.2 15.4Z" /></svg> : <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></svg>}</button></div></header>
+
+    {keyMetrics.length > 0 && <section className="ops-keypoint-marquee" aria-label="Top five portfolio indicators">
+      <div className="ops-keypoint-track">
+        {[0, 1].map((copy) => <div className="ops-keypoint-group" key={copy} aria-hidden={copy === 1}>
+          {keyMetrics.map((metric) => <button className={`ops-keypoint${copy === 1 ? ' is-duplicate' : ''} tone-${metric.tone}`} key={`${copy}-${metric.id}`} type="button" tabIndex={copy === 1 ? -1 : undefined} onClick={() => clickMetric(metric)} title={`Open details for ${metric.label}`}>
+            <span>{metric.label}</span><strong>{metric.value}</strong>
+          </button>)}
+        </div>)}
+      </div>
+    </section>}
 
     <section className="ops-filter-bar" aria-label="Dashboard filters">
       <label><span>Project</span><select value={filters.projectId} onChange={(event) => updateFilter('projectId', event.target.value)}><option value="all">All projects</option>{model.filters.projects.map((project) => <option value={project.id} key={project.id}>{project.label}</option>)}</select></label>
@@ -292,7 +317,7 @@ export function OperationsCommandCenter({ source, loading = false, refreshing = 
     {loading ? <div className="ops-loading" role="status"><i /><div><strong>Loading operational data</strong><p>Connecting to Dataverse modules…</p></div></div> : <>
       <section className={`ops-portfolio-overview${collapsedPanels.has('portfolio-overview') ? ' is-collapsed' : ''}`} aria-label="Portfolio overview">
         <header className="ops-section-heading"><div><p className="ops-eyebrow">Portfolio overview</p><h2>Operating position</h2></div><div className="ops-overview-actions"><span>{model.filteredProjectCount} projects in scope</span><button className="ops-icon-button" type="button" onClick={() => toggleCollapse('portfolio-overview')} title={collapsedPanels.has('portfolio-overview') ? 'Expand' : 'Collapse'} aria-label={collapsedPanels.has('portfolio-overview') ? 'Expand portfolio overview' : 'Collapse portfolio overview'} aria-expanded={!collapsedPanels.has('portfolio-overview')}>{collapsedPanels.has('portfolio-overview') ? '⌄' : '⌃'}</button></div></header>
-        {!collapsedPanels.has('portfolio-overview') && <div className="ops-metric-strip-grid">{model.metrics.map((metric) => <MetricIndicator key={metric.id} metric={metric} onClick={() => clickMetric(metric)} />)}</div>}
+        {!collapsedPanels.has('portfolio-overview') && <div className="ops-metric-strip-grid">{model.metrics.map((metric) => <MetricIndicator key={metric.id} metric={metric} onClick={() => clickMetric(metric)} secondary={!keyMetricIdSet.has(metric.id)} />)}</div>}
       </section>
 
       {model.sourceProjectCount === 0 && <div className="ops-no-projects"><strong>No project data returned from Dataverse.</strong><p>The command center uses the real project and operational tables. No sample records or simulated trend data are substituted.</p></div>}

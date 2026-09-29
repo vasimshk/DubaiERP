@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { OperationsCommandCenter } from './OperationsCommandCenter'
+import { SortableTable } from './SortableTable'
 import { ClientPage, ContractorsPage, ContractsPage, DailySiteReportsPage, EmployeesPage, InspectionsPage, PaymentApplicationsPage, PurchaseOrdersPage, SuppliersPage, PermitApprovalsPage, ProjectDocumentsPage, ProjectPhasesPage, ProjectsPage, SafetyIncidentsPage, VariationOrdersPage, WorkPackagesPage } from './ClientProjectViews'
 import { ExecutiveSummary } from './ExecutiveSummary'
 import type { Craft_clients } from './generated/models/Craft_clientsModel'
@@ -232,7 +233,7 @@ function EquipmentPanel({ records, loading, onRefresh }: { records: Craft_equipm
             <p className="state-text">No equipment records found.</p>
           ) : (
             <div className="table-wrap">
-              <table>
+              <SortableTable>
                 <thead>
                   <tr>
                     <th>Equipment</th>
@@ -257,7 +258,7 @@ function EquipmentPanel({ records, loading, onRefresh }: { records: Craft_equipm
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </SortableTable>
             </div>
           )}
         </section>
@@ -334,6 +335,11 @@ function EquipmentPanel({ records, loading, onRefresh }: { records: Craft_equipm
 
 function App() {
   const [view, setView] = useState<ViewMode>('dashboard')
+  const [navigationCollapsed, setNavigationCollapsed] = useState(false)
+  const [theme, setTheme] = useState<'light' | 'gray'>(() => {
+    const savedTheme = window.localStorage.getItem('dubai-erp-theme')
+    return savedTheme === 'gray' ? 'gray' : 'light'
+  })
   const [clients, setClients] = useState<Craft_clients[]>([])
   const [projects, setProjects] = useState<Craft_projects[]>([])
   const [contracts, setContracts] = useState<Craft_contract1s[]>([])
@@ -371,6 +377,10 @@ function App() {
   const [selectedPurchaseOrderId, setSelectedPurchaseOrderId] = useState<string | null>(null)
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null)
   const [selectedDailySiteReportId, setSelectedDailySiteReportId] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.localStorage.setItem('dubai-erp-theme', theme)
+  }, [theme])
 
   useEffect(() => {
     const load = async () => {
@@ -603,10 +613,21 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-theme={theme} data-navigation-collapsed={navigationCollapsed}>
+      <button
+        className="navigation-toggle"
+        type="button"
+        aria-label={navigationCollapsed ? 'Show navigation menu' : 'Hide navigation menu'}
+        aria-expanded={!navigationCollapsed}
+        aria-controls="main-navigation"
+        title={navigationCollapsed ? 'Show navigation' : 'Hide navigation'}
+        onClick={() => setNavigationCollapsed((collapsed) => !collapsed)}
+      >
+        <span aria-hidden="true"><i /><i /><i /></span>
+      </button>
       <aside className="side-nav">
         <div className="side-nav-brand">Dubai ERP</div>
-        <nav className="side-nav-links" aria-label="Main navigation">
+        <nav className="side-nav-links" id="main-navigation" aria-label="Main navigation">
           <button className={view === 'dashboard' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('dashboard')}>Dashboard</button>
           <button className={view === 'executive' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('executive')}>Executive summary</button>
           <button className={view === 'clients' ? 'nav-button active' : 'nav-button'} type="button" onClick={() => setView('clients')}>Clients</button>
@@ -631,7 +652,7 @@ function App() {
 
       <main className="app-content">
       {view === 'dashboard' ? (
-        <OperationsCommandCenter source={dashboardSource} loading={loading} refreshing={refreshingDashboard} error={dashboardError} lastRefreshed={dashboardLastRefreshed} onRefresh={() => void refreshDashboard()} />
+        <OperationsCommandCenter source={dashboardSource} loading={loading} refreshing={refreshingDashboard} error={dashboardError} lastRefreshed={dashboardLastRefreshed} onRefresh={() => void refreshDashboard()} theme={theme} onToggleTheme={() => setTheme((currentTheme) => currentTheme === 'light' ? 'gray' : 'light')} />
       ) : view === 'executive' ? (
         <ExecutiveSummary
           contracts={contracts}

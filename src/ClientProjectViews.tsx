@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { SortableTable } from './SortableTable'
 import {
   Craft_clientscraft_clientstatus,
 } from './generated/models/Craft_clientsModel'
@@ -157,7 +158,7 @@ export function ClientPage({ clients, projects, onOpenProjects }: ClientProjectV
       <section className="entity-toolbar"><label className="search-field"><span>Search clients</span><input type="search" placeholder="Search name, contact, email..." value={search} onChange={(event) => setSearch(event.target.value)} /></label><span className="result-count">Showing {filteredClients.length} records</span></section>
       <div className="entity-content-grid">
         <section className="table-panel entity-table-panel">
-          {filteredClients.length === 0 ? <p className="table-message">No clients match your search.</p> : <div className="table-scroll"><table><thead><tr><th>Client</th><th>Type</th><th>Contact</th><th>Status</th><th>Projects</th><th>Lifetime value</th></tr></thead><tbody>{filteredClients.map((client) => <tr className={selectedClient?.craft_clientid === client.craft_clientid ? 'selected-row' : ''} key={client.craft_clientid} onClick={() => setSelectedClient(client)}><td className="equipment-name">{clientName(client)}<small>{client.craft_clientid1 || client.craft_clientid}</small></td><td>{client.craft_clienttype || '-'}</td><td><strong>{client.craft_contactperson || 'No contact'}</strong><small>{client.craft_contactemail || 'No email'}</small></td><td><span className={`status status-${clientStatus(client).toLowerCase().replaceAll(' ', '-')}`}>{clientStatus(client)}</span></td><td>{client.craft_activeprojectscount ?? projects.filter((project) => projectClientId(project) === client.craft_clientid).length}</td><td>{money(client.craft_lifetimerevenue)}</td></tr>)}</tbody></table></div>}
+          {filteredClients.length === 0 ? <p className="table-message">No clients match your search.</p> : <div className="table-scroll"><SortableTable><thead><tr><th>Client</th><th>Type</th><th>Contact</th><th>Status</th><th>Projects</th><th>Lifetime value</th></tr></thead><tbody>{filteredClients.map((client) => <tr className={selectedClient?.craft_clientid === client.craft_clientid ? 'selected-row' : ''} key={client.craft_clientid} onClick={() => setSelectedClient(client)}><td className="equipment-name">{clientName(client)}<small>{client.craft_clientid1 || client.craft_clientid}</small></td><td>{client.craft_clienttype || '-'}</td><td className="contact-cell"><strong>{client.craft_contactperson || 'No contact'}</strong><small>{client.craft_contactemail || 'No email'}</small></td><td><span className={`status status-${clientStatus(client).toLowerCase().replaceAll(' ', '-')}`}>{clientStatus(client)}</span></td><td>{client.craft_activeprojectscount ?? projects.filter((project) => projectClientId(project) === client.craft_clientid).length}</td><td>{money(client.craft_lifetimerevenue)}</td></tr>)}</tbody></SortableTable></div>}
         </section>
         <aside className="details-panel entity-details-panel">{selectedClient ? <div className="details-content"><div className="panel-heading"><div><p className="eyebrow">Client details</p><h2>{clientName(selectedClient)}</h2></div><span className={`status status-${clientStatus(selectedClient).toLowerCase().replaceAll(' ', '-')}`}>{clientStatus(selectedClient)}</span></div><dl className="details-list"><div><dt>Client type</dt><dd>{selectedClient.craft_clienttype || '-'}</dd></div><div><dt>Contact person</dt><dd>{selectedClient.craft_contactperson || '-'}</dd></div><div><dt>Email</dt><dd>{selectedClient.craft_contactemail || '-'}</dd></div><div><dt>Phone</dt><dd>{selectedClient.craft_contactphone || '-'}</dd></div><div><dt>Address</dt><dd>{selectedClient.craft_clientaddress || '-'}</dd></div><div><dt>Payment terms</dt><dd>{selectedClient.craft_paymentterms || '-'}</dd></div><div><dt>Credit limit</dt><dd>{money(selectedClient.craft_creditlimitaed)}</dd></div><div><dt>Last activity</dt><dd>{date(selectedClient.craft_lastactivitydate)}</dd></div></dl><div className="related-projects"><div className="related-heading"><h3>Related projects</h3><button className="text-button" type="button" onClick={() => onOpenProjects(selectedClient.craft_clientid)}>Open all</button></div><div className="related-record-list">{projectsForClient.length > 0 ? projectsForClient.map((project) => <button className="related-project" type="button" key={project.craft_projectid} onClick={() => onOpenProjects(selectedClient.craft_clientid)}><span>{project.craft_projectname || project.craft_projectid1 || project.craft_projectid}</span><small>{healthStatus(project)} · {project.craft_location || 'No location'}</small></button>) : <p className="empty-widget">No projects connected to this client.</p>}</div></div></div> : <div className="empty-details"><strong>Select a client</strong><span>Client details and related projects will appear here.</span></div>}</aside>
       </div>
@@ -216,7 +217,7 @@ export function ProjectPhasesPage({ clients, projects, projectPhases, selectedPh
       <div className="entity-content-grid">
         <section className="table-panel entity-project-table">
           <div className="table-scroll">
-            <table>
+            <SortableTable>
               <thead>
                 <tr>
                   <th>Phase</th>
@@ -245,7 +246,7 @@ export function ProjectPhasesPage({ clients, projects, projectPhases, selectedPh
                   )
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
         </section>
         <aside className="details-panel entity-details-panel">
@@ -330,7 +331,7 @@ export function PermitApprovalsPage({ clients, projects, permitApprovals, select
       <div className="entity-content-grid">
         <section className="table-panel entity-project-table">
           <div className="table-scroll">
-            <table>
+            <SortableTable>
               <thead><tr><th>Permit</th><th>Type</th><th>Project</th><th>Status</th><th>Expiry date</th></tr></thead>
               <tbody>
                 {filteredPermits.map((permit) => {
@@ -346,7 +347,7 @@ export function PermitApprovalsPage({ clients, projects, permitApprovals, select
                   )
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
           {filteredPermits.length === 0 && <p className="table-message">No permit approvals match your search.</p>}
         </section>
@@ -429,7 +430,7 @@ export function SafetyIncidentsPage({ clients, projects, incidents, selectedInci
       <div className="entity-content-grid">
         <section className="table-panel entity-project-table">
           <div className="table-scroll">
-            <table>
+            <SortableTable>
               <thead><tr><th>Incident</th><th>Type</th><th>Project</th><th>Severity</th><th>Status</th><th>Incident date</th></tr></thead>
               <tbody>
                 {filteredIncidents.map((incident) => {
@@ -446,7 +447,7 @@ export function SafetyIncidentsPage({ clients, projects, incidents, selectedInci
                   )
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
           {filteredIncidents.length === 0 && <p className="table-message">No safety incidents match your search.</p>}
         </section>
@@ -532,7 +533,7 @@ export function VariationOrdersPage({ clients, projects, variationOrders, select
       <div className="entity-content-grid">
         <section className="table-panel entity-project-table">
           <div className="table-scroll">
-            <table>
+            <SortableTable>
               <thead><tr><th>Variation order</th><th>Reason</th><th>Project</th><th>Status</th><th>Value</th><th>Approved date</th></tr></thead>
               <tbody>
                 {filteredVariationOrders.map((variationOrder) => {
@@ -549,7 +550,7 @@ export function VariationOrdersPage({ clients, projects, variationOrders, select
                   )
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
           {filteredVariationOrders.length === 0 && <p className="table-message">No variation orders match your search.</p>}
         </section>
@@ -636,7 +637,7 @@ export function EmployeesPage({ projects, employees, inspections, dailySiteRepor
       <div className="entity-content-grid">
         <section className="table-panel entity-project-table">
           <div className="table-scroll">
-            <table>
+            <SortableTable>
               <thead><tr><th>Employee</th><th>Department</th><th>Designation</th><th>Status</th><th>Projects</th><th>Joining date</th></tr></thead>
               <tbody>
                 {filteredEmployees.map((employee) => {
@@ -653,7 +654,7 @@ export function EmployeesPage({ projects, employees, inspections, dailySiteRepor
                   )
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
           {filteredEmployees.length === 0 && <p className="table-message">No employees match your search.</p>}
         </section>
@@ -764,7 +765,7 @@ export function InspectionsPage({ projects, employees, inspections, selectedInsp
       <div className="entity-content-grid">
         <section className="table-panel entity-project-table">
           <div className="table-scroll">
-            <table>
+            <SortableTable>
               <thead><tr><th>Inspection</th><th>Type</th><th>Project</th><th>Inspector</th><th>Result</th><th>Date</th></tr></thead>
               <tbody>
                 {filteredInspections.map((inspection) => {
@@ -782,7 +783,7 @@ export function InspectionsPage({ projects, employees, inspections, selectedInsp
                   )
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
           {filteredInspections.length === 0 && <p className="table-message">No inspections match your search.</p>}
         </section>
@@ -875,7 +876,7 @@ export function DailySiteReportsPage({ projects, employees, reports, selectedRep
       <div className="entity-content-grid">
         <section className="table-panel entity-project-table">
           <div className="table-scroll">
-            <table>
+            <SortableTable>
               <thead><tr><th>Report</th><th>Date</th><th>Project</th><th>Prepared by</th><th>Weather</th><th>Direct manpower</th></tr></thead>
               <tbody>
                 {filteredReports.map((report) => {
@@ -893,7 +894,7 @@ export function DailySiteReportsPage({ projects, employees, reports, selectedRep
                   )
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
           {filteredReports.length === 0 && <p className="table-message">No daily site reports match your search.</p>}
         </section>
@@ -981,7 +982,7 @@ export function ContractorsPage({ projects, contractors, contracts, selectedCont
       <div className="entity-content-grid">
         <section className="table-panel entity-project-table">
           <div className="table-scroll">
-            <table>
+            <SortableTable>
               <thead><tr><th>Contractor</th><th>Specialty</th><th>Rating</th><th>Status</th><th>Contracts</th><th>Phone</th></tr></thead>
               <tbody>
                 {filteredContractors.map((contractor) => {
@@ -998,7 +999,7 @@ export function ContractorsPage({ projects, contractors, contracts, selectedCont
                   )
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
           {filteredContractors.length === 0 && <p className="table-message">No contractors match your search.</p>}
         </section>
@@ -1090,7 +1091,7 @@ export function PurchaseOrdersPage({ projects, suppliers, purchaseOrders, select
       <div className="entity-content-grid">
         <section className="table-panel entity-project-table">
           <div className="table-scroll">
-            <table>
+            <SortableTable>
               <thead><tr><th>Purchase order</th><th>Project</th><th>Supplier</th><th>Type</th><th>Status</th><th>Amount</th><th>Delivery date</th></tr></thead>
               <tbody>
                 {filteredPurchaseOrders.map((purchaseOrder) => {
@@ -1109,7 +1110,7 @@ export function PurchaseOrdersPage({ projects, suppliers, purchaseOrders, select
                   )
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
           {filteredPurchaseOrders.length === 0 && <p className="table-message">No purchase orders match your search.</p>}
         </section>
@@ -1193,7 +1194,7 @@ export function SuppliersPage({ suppliers, purchaseOrders, selectedSupplierId, o
       <div className="entity-content-grid">
         <section className="table-panel entity-project-table">
           <div className="table-scroll">
-            <table>
+            <SortableTable>
               <thead><tr><th>Supplier</th><th>Category</th><th>Contact</th><th>Status</th><th>Purchase orders</th><th>Phone</th></tr></thead>
               <tbody>
                 {filteredSuppliers.map((supplier) => {
@@ -1210,7 +1211,7 @@ export function SuppliersPage({ suppliers, purchaseOrders, selectedSupplierId, o
                   )
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
           {filteredSuppliers.length === 0 && <p className="table-message">No suppliers match your search.</p>}
         </section>
@@ -1294,7 +1295,7 @@ export function PaymentApplicationsPage({ projects, contracts, paymentApplicatio
       <div className="entity-content-grid">
         <section className="table-panel entity-project-table">
           <div className="table-scroll">
-            <table>
+            <SortableTable>
               <thead><tr><th>Certificate</th><th>Project</th><th>Contract</th><th>Status</th><th>Net certified</th><th>Payment date</th></tr></thead>
               <tbody>
                 {filteredPaymentApplications.map((payment) => {
@@ -1312,7 +1313,7 @@ export function PaymentApplicationsPage({ projects, contracts, paymentApplicatio
                   )
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
           {filteredPaymentApplications.length === 0 && <p className="table-message">No payment applications match your search.</p>}
         </section>
@@ -1403,7 +1404,7 @@ export function ContractsPage({ clients, projects, contractors, contracts, payme
       <div className="entity-content-grid">
         <section className="table-panel entity-project-table">
           <div className="table-scroll">
-            <table>
+            <SortableTable>
               <thead><tr><th>Contract</th><th>Type</th><th>Project</th><th>Status</th><th>Value</th><th>Commencement</th></tr></thead>
               <tbody>
                 {filteredContracts.map((contract) => {
@@ -1420,7 +1421,7 @@ export function ContractsPage({ clients, projects, contractors, contracts, payme
                   )
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
           {filteredContracts.length === 0 && <p className="table-message">No contracts match your search.</p>}
         </section>
@@ -1539,7 +1540,7 @@ export function WorkPackagesPage({ projects, projectPhases, contractors, workPac
       <div className="entity-content-grid">
         <section className="table-panel entity-project-table">
           <div className="table-scroll">
-            <table>
+            <SortableTable>
               <thead><tr><th>Work package</th><th>Project</th><th>Phase</th><th>Contractor</th><th>Quantity</th><th>Package value</th></tr></thead>
               <tbody>
                 {filteredWorkPackages.map((workPackage) => {
@@ -1558,7 +1559,7 @@ export function WorkPackagesPage({ projects, projectPhases, contractors, workPac
                   )
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
           {filteredWorkPackages.length === 0 && <p className="table-message">No work packages match your search.</p>}
         </section>
@@ -1652,7 +1653,7 @@ export function ProjectDocumentsPage({ clients, projects, projectDocuments, sele
       <div className="entity-content-grid">
         <section className="table-panel entity-project-table">
           <div className="table-scroll">
-            <table>
+            <SortableTable>
               <thead><tr><th>Document</th><th>Type</th><th>Project</th><th>Status</th><th>Revision</th><th>Created</th></tr></thead>
               <tbody>
                 {filteredProjectDocuments.map((projectDocument) => {
@@ -1669,7 +1670,7 @@ export function ProjectDocumentsPage({ clients, projects, projectDocuments, sele
                   )
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
           {filteredProjectDocuments.length === 0 && <p className="table-message">No project documents match your search.</p>}
         </section>
@@ -1792,7 +1793,7 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
       <section className="metric-grid entity-metrics"><article className="metric-card metric-card-primary"><span>Total projects</span><strong>{filteredProjects.length}</strong><small>In current view</small></article><article className="metric-card"><span>Green health</span><strong>{green}</strong><small className="metric-positive">On track</small></article><article className="metric-card"><span>Average completion</span><strong>{averageCompletion}%</strong><small>Across selected projects</small></article><article className="metric-card"><span>Contract value</span><strong>{money(contractValue)}</strong><small>{clientProjects.length} client-linked projects</small></article></section>
       <section className="entity-toolbar"><label className="search-field"><span>Search projects</span><input type="search" placeholder="Search project, client, location..." value={search} onChange={(event) => setSearch(event.target.value)} /></label><label className="entity-filter">Client<select value={clientFilter} onChange={(event) => setClientFilter(event.target.value)}><option>All clients</option>{clients.map((client) => <option value={client.craft_clientid} key={client.craft_clientid}>{clientName(client)}</option>)}</select></label><span className="result-count">Showing {filteredProjects.length} records</span></section>
       <div className="entity-content-grid">
-        <section className="table-panel entity-project-table"><div className="table-scroll"><table><thead><tr><th>Project</th><th>Client</th><th>Location</th><th>Health</th><th>Completion</th><th>Contract value</th><th>End date</th></tr></thead><tbody>{filteredProjects.map((project) => <tr className={selectedProject?.craft_projectid === project.craft_projectid ? 'selected-row' : ''} key={project.craft_projectid} onClick={() => setSelectedProject(project)}><td className="equipment-name">{project.craft_projectname || project.craft_projectid1 || project.craft_projectid}<small>{project.craft_projecttype || 'Project'}</small></td><td>{clientName(clientMap.get(projectClientId(project) ?? ''))}</td><td>{project.craft_location || '-'}</td><td><span className={`status status-${healthStatus(project).toLowerCase()}`}>{healthStatus(project)}</span></td><td><div className="completion-cell"><span>{project.craft_completionpercentage ?? 0}%</span><i><b style={{ width: `${Math.min(project.craft_completionpercentage ?? 0, 100)}%` }} /></i></div></td><td>{money(project.craft_contractvalueaed)}</td><td>{date(project.craft_enddate)}</td></tr>)}</tbody></table></div>{filteredProjects.length === 0 && <p className="table-message">No projects match the selected filters.</p>}</section>
+        <section className="table-panel entity-project-table"><div className="table-scroll"><SortableTable><thead><tr><th>Project</th><th>Client</th><th>Location</th><th>Health</th><th>Completion</th><th>Contract value</th><th>End date</th></tr></thead><tbody>{filteredProjects.map((project) => <tr className={selectedProject?.craft_projectid === project.craft_projectid ? 'selected-row' : ''} key={project.craft_projectid} onClick={() => setSelectedProject(project)}><td className="equipment-name">{project.craft_projectname || project.craft_projectid1 || project.craft_projectid}<small>{project.craft_projecttype || 'Project'}</small></td><td>{clientName(clientMap.get(projectClientId(project) ?? ''))}</td><td>{project.craft_location || '-'}</td><td><span className={`status status-${healthStatus(project).toLowerCase()}`}>{healthStatus(project)}</span></td><td><div className="completion-cell"><span>{project.craft_completionpercentage ?? 0}%</span><i><b style={{ width: `${Math.min(project.craft_completionpercentage ?? 0, 100)}%` }} /></i></div></td><td>{money(project.craft_contractvalueaed)}</td><td>{date(project.craft_enddate)}</td></tr>)}</tbody></SortableTable></div>{filteredProjects.length === 0 && <p className="table-message">No projects match the selected filters.</p>}</section>
         <aside className="details-panel entity-details-panel">
           {selectedProject ? (
             <div className="details-content">

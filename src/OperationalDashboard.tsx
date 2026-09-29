@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   emptyDashboardFilters,
   getOperationalDashboardModel,
@@ -7,6 +7,7 @@ import {
   type DashboardTable,
   type OperationalDashboardSource,
 } from './services/operationalDashboardService'
+import { RecordDetailsDialog, TablePageSizeInput, type RecordDetailField } from './SortableTable'
 import './OperationalDashboard.css'
 
 type DashboardTab = 'overview' | 'analytics' | 'tables'
@@ -101,6 +102,7 @@ function DashboardDataTable({ table }: { table: DashboardTable }) {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(10)
+  const [recordDetails, setRecordDetails] = useState<RecordDetailField[] | null>(null)
 
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -115,7 +117,12 @@ function DashboardDataTable({ table }: { table: DashboardTable }) {
     })
   }, [search, sortDirection, sortKey, table.rows])
   const pageCount = Math.ceil(filteredRows.length / pageSize)
-  const visibleRows = filteredRows.slice(page * pageSize, (page + 1) * pageSize)
+  const currentPage = Math.min(page, Math.max(0, pageCount - 1))
+  const visibleRows = filteredRows.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+
+  useEffect(() => {
+    if (page !== currentPage) setPage(currentPage)
+  }, [currentPage, page])
 
   const handleSort = (key: string) => {
     if (sortKey === key) setSortDirection((direction) => direction === 'asc' ? 'desc' : 'asc')
@@ -132,20 +139,21 @@ function DashboardDataTable({ table }: { table: DashboardTable }) {
       {visibleRows.length > 0 ? (
         <div className="ops-table-scroll"><table className="ops-data-table">
           <thead><tr>{table.columns.map((column) => <th key={column.key} className={column.align === 'right' ? 'is-numeric' : ''}><button type="button" onClick={() => handleSort(column.key)} aria-label={`Sort by ${column.label}`}>{column.label}<span aria-hidden="true">{sortKey === column.key ? sortDirection === 'asc' ? ' ↑' : ' ↓' : ''}</span></button></th>)}</tr></thead>
-          <tbody>{visibleRows.map((row) => <tr key={row.id}>{table.columns.map((column) => <td key={column.key} className={column.align === 'right' ? 'is-numeric' : ''}>{row.cells[column.key]?.display ?? '—'}</td>)}</tr>)}</tbody>
+          <tbody>{visibleRows.map((row) => <tr className="record-clickable" key={row.id} onClick={() => setRecordDetails(table.columns.map((column) => ({ label: column.label, value: row.cells[column.key]?.display ?? '—' })))} title="Click to view record details">{table.columns.map((column) => <td key={column.key} className={column.align === 'right' ? 'is-numeric' : ''}>{row.cells[column.key]?.display ?? '—'}</td>)}</tr>)}</tbody>
         </table></div>
       ) : (
         <div className="ops-table-empty"><strong>{search ? 'No matching rows' : 'No records to display'}</strong><p>{search ? 'Try a different search term.' : table.emptyMessage}</p></div>
       )}
       <footer className="ops-table-footer">
-        <span>{filteredRows.length === 0 ? '0 records' : `${page * pageSize + 1}-${Math.min((page + 1) * pageSize, filteredRows.length)} of ${filteredRows.length}`}</span>
+        <span>{filteredRows.length === 0 ? '0 records' : `${currentPage * pageSize + 1}-${Math.min((currentPage + 1) * pageSize, filteredRows.length)} of ${filteredRows.length}`}</span>
         <div className="ops-table-pagination">
-          <label>Rows<select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(0) }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-          <button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0}>Previous</button>
-          <span>{pageCount === 0 ? 0 : page + 1} / {pageCount}</span>
-          <button type="button" onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))} disabled={page >= pageCount - 1}>Next</button>
+          <label>Rows<TablePageSizeInput value={pageSize} onChange={(size) => { setPageSize(size); setPage(0) }} idPrefix={`dashboard-${table.id}-page-size`} /></label>
+          <button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={currentPage === 0}>Previous</button>
+          <span>{pageCount === 0 ? 0 : currentPage + 1} / {pageCount}</span>
+          <button type="button" onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))} disabled={currentPage >= pageCount - 1}>Next</button>
         </div>
       </footer>
+      {recordDetails && <RecordDetailsDialog fields={recordDetails} onClose={() => setRecordDetails(null)} />}
     </section>
   )
 }
