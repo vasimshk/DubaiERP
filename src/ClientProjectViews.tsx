@@ -5,6 +5,7 @@ import {
 import { Craft_projectscraft_healthstatus } from './generated/models/Craft_projectsModel'
 import type { Craft_clients } from './generated/models/Craft_clientsModel'
 import type { Craft_permitapprovals } from './generated/models/Craft_permitapprovalsModel'
+import type { Craft_projectdocuments } from './generated/models/Craft_projectdocumentsModel'
 import type { Craft_projectphases } from './generated/models/Craft_projectphasesModel'
 import type { Craft_projects } from './generated/models/Craft_projectsModel'
 import type { Craft_safetyincidents } from './generated/models/Craft_safetyincidentsModel'
@@ -43,6 +44,11 @@ const variationOrderBelongsToProject = (variationOrder: Craft_variationorders, p
   const variationProjectIds = [variationOrder.craft_projectid, variationOrder._craft_project_value].filter(Boolean)
   const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
   return variationProjectIds.some((variationProjectId) => projectIds.includes(variationProjectId))
+}
+const projectDocumentBelongsToProject = (projectDocument: Craft_projectdocuments, project: Craft_projects) => {
+  const documentProjectIds = [projectDocument.craft_projectid, projectDocument._craft_project_value].filter(Boolean)
+  const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
+  return documentProjectIds.some((documentProjectId) => projectIds.includes(documentProjectId))
 }
 
 export function ClientPage({ clients, projects, onOpenProjects }: ClientProjectViewProps) {
@@ -511,7 +517,107 @@ export function VariationOrdersPage({ clients, projects, variationOrders, select
   )
 }
 
-export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void }) {
+export function ProjectDocumentsPage({ clients, projects, projectDocuments, selectedProjectDocumentId, onOpenProject }: { clients: Craft_clients[]; projects: Craft_projects[]; projectDocuments: Craft_projectdocuments[]; selectedProjectDocumentId?: string | null; onOpenProject?: (project: Craft_projects) => void }) {
+  const [search, setSearch] = useState('')
+  const filteredProjectDocuments = useMemo(() => {
+    const query = search.toLowerCase()
+    return projectDocuments.filter((projectDocument) => {
+      const project = projects.find((candidate) => projectDocumentBelongsToProject(projectDocument, candidate))
+      return [projectDocument.craft_projectdocumentid, projectDocument.craft_documentnumber, projectDocument.craft_title, projectDocument.craft_documenttypename, projectDocument.craft_statusname, projectDocument.craft_disciplinename, project?.craft_projectname, project?.craft_projectid1]
+        .some((value) => value?.toLowerCase().includes(query))
+    })
+  }, [projectDocuments, projects, search])
+  const [selectedProjectDocument, setSelectedProjectDocument] = useState<Craft_projectdocuments | null>(null)
+
+  useEffect(() => {
+    if (filteredProjectDocuments.length === 0) {
+      setSelectedProjectDocument(null)
+      return
+    }
+
+    const matchingProjectDocument = selectedProjectDocumentId
+      ? filteredProjectDocuments.find((projectDocument) => projectDocument.craft_projectdocumentid === selectedProjectDocumentId)
+      : undefined
+    setSelectedProjectDocument((current) => matchingProjectDocument ?? (current && filteredProjectDocuments.some((projectDocument) => projectDocument.craft_projectdocumentid === current.craft_projectdocumentid) ? current : filteredProjectDocuments[0]))
+  }, [filteredProjectDocuments, selectedProjectDocumentId])
+
+  const selectedProjectDocumentProject = selectedProjectDocument ? projects.find((project) => projectDocumentBelongsToProject(selectedProjectDocument, project)) : undefined
+
+  return (
+    <div className="entity-view">
+      <header className="entity-header">
+        <div><p className="eyebrow">Dubai ERP / Documentation</p><h1>Project Documents</h1><p className="subtitle">Review document metadata, revision status, and project association.</p></div>
+      </header>
+      <section className="entity-toolbar">
+        <label className="search-field"><span>Search documents</span><input type="search" placeholder="Search title, number, project..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <span className="result-count">Showing {filteredProjectDocuments.length} records</span>
+      </section>
+      <div className="entity-content-grid">
+        <section className="table-panel entity-project-table">
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Document</th><th>Type</th><th>Project</th><th>Status</th><th>Revision</th><th>Created</th></tr></thead>
+              <tbody>
+                {filteredProjectDocuments.map((projectDocument) => {
+                  const project = projects.find((candidate) => projectDocumentBelongsToProject(projectDocument, candidate))
+                  return (
+                    <tr className={selectedProjectDocument?.craft_projectdocumentid === projectDocument.craft_projectdocumentid ? 'selected-row' : ''} key={projectDocument.craft_projectdocumentid} onClick={() => setSelectedProjectDocument(projectDocument)}>
+                      <td className="equipment-name">{projectDocument.craft_title || projectDocument.craft_documentnumber || projectDocument.craft_projectdocumentid}<small>{projectDocument.craft_documentnumber || projectDocument.craft_projectdocumentid}</small></td>
+                      <td>{projectDocument.craft_documenttypename || 'Document'}</td>
+                      <td>{project?.craft_projectname || project?.craft_projectid1 || project?.craft_projectid || '-'}</td>
+                      <td>{projectDocument.craft_statusname || 'Unknown'}</td>
+                      <td>{projectDocument.craft_revision || '-'}</td>
+                      <td>{date(projectDocument.craft_createddate || projectDocument.createdon)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {filteredProjectDocuments.length === 0 && <p className="table-message">No project documents match your search.</p>}
+        </section>
+        <aside className="details-panel entity-details-panel">
+          {selectedProjectDocument ? (
+            <div className="details-content">
+              <div className="panel-heading">
+                <div><p className="eyebrow">Document details</p><h2>{selectedProjectDocument.craft_title || selectedProjectDocument.craft_documentnumber || selectedProjectDocument.craft_projectdocumentid}</h2></div>
+                <span className={`status status-${(selectedProjectDocument.craft_statusname || 'unknown').toLowerCase().replaceAll(' ', '-')}`}>{selectedProjectDocument.craft_statusname || 'Unknown'}</span>
+              </div>
+              <dl className="details-list">
+                <div><dt>Type</dt><dd>{selectedProjectDocument.craft_documenttypename || '-'}</dd></div>
+                <div><dt>Document number</dt><dd>{selectedProjectDocument.craft_documentnumber || '-'}</dd></div>
+                <div><dt>Discipline</dt><dd>{selectedProjectDocument.craft_disciplinename || '-'}</dd></div>
+                <div><dt>Revision</dt><dd>{selectedProjectDocument.craft_revision || '-'}</dd></div>
+                <div><dt>Created date</dt><dd>{date(selectedProjectDocument.craft_createddate || selectedProjectDocument.createdon)}</dd></div>
+                <div><dt>File path</dt><dd>{selectedProjectDocument.craft_filepath || '-'}</dd></div>
+                <div><dt>Internal notes</dt><dd>{selectedProjectDocument.craft_internalnotes || '-'}</dd></div>
+              </dl>
+              <section className="related-record-details">
+                <p className="eyebrow">Related project</p>
+                {selectedProjectDocumentProject ? (
+                  <>
+                    <button className="related-project related-project-link" type="button" onClick={() => onOpenProject?.(selectedProjectDocumentProject)}>
+                      <span>{selectedProjectDocumentProject.craft_projectname || selectedProjectDocumentProject.craft_projectid1 || selectedProjectDocumentProject.craft_projectid}</span>
+                      <small>Open project record</small>
+                    </button>
+                    <dl className="details-list">
+                      <div><dt>Client</dt><dd>{clientName(clients.find((client) => projectClientId(selectedProjectDocumentProject) === client.craft_clientid))}</dd></div>
+                      <div><dt>Location</dt><dd>{selectedProjectDocumentProject.craft_location || '-'}</dd></div>
+                      <div><dt>Health</dt><dd>{healthStatus(selectedProjectDocumentProject)}</dd></div>
+                      <div><dt>Completion</dt><dd>{selectedProjectDocumentProject.craft_completionpercentage ?? 0}%</dd></div>
+                    </dl>
+                  </>
+                ) : <p className="empty-widget">No related project record found.</p>}
+              </section>
+            </div>
+          ) : <div className="empty-details"><strong>Select a project document</strong><span>Document and project details will appear here.</span></div>}
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], projectDocuments = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, onOpenProjectDocument, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; projectDocuments?: Craft_projectdocuments[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void; onOpenProjectDocument?: (projectDocument: Craft_projectdocuments) => void }) {
   const [search, setSearch] = useState('')
   const [clientFilter, setClientFilter] = useState(selectedClientId)
   const [selectedProject, setSelectedProject] = useState<Craft_projects | null>(null)
@@ -574,6 +680,7 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
   const relatedPermitApprovals = selectedProject ? permitApprovals.filter((permit) => permitBelongsToProject(permit, selectedProject)) : []
   const relatedSafetyIncidents = selectedProject ? safetyIncidents.filter((incident) => incidentBelongsToProject(incident, selectedProject)) : []
   const relatedVariationOrders = selectedProject ? variationOrders.filter((variationOrder) => variationOrderBelongsToProject(variationOrder, selectedProject)) : []
+  const relatedProjectDocuments = selectedProject ? projectDocuments.filter((projectDocument) => projectDocumentBelongsToProject(projectDocument, selectedProject)) : []
 
   return (
     <div className="entity-view">
@@ -674,6 +781,24 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
                   ))
                 ) : (
                   <p className="empty-widget">No variation orders connected to this project.</p>
+                )}
+                </div>
+              </div>
+
+              <div className="related-projects">
+                <div className="related-heading">
+                  <h3>Project Documents</h3>
+                </div>
+                <div className="related-record-list">
+                {relatedProjectDocuments.length > 0 ? (
+                  relatedProjectDocuments.map((projectDocument) => (
+                    <button className="related-project" type="button" key={projectDocument.craft_projectdocumentid} onClick={() => onOpenProjectDocument?.(projectDocument)}>
+                      <span>{projectDocument.craft_title || projectDocument.craft_documentnumber || projectDocument.craft_projectdocumentid}</span>
+                      <small>{projectDocument.craft_documenttypename || 'Document'} · {projectDocument.craft_statusname || 'Status unavailable'} · {projectDocument.craft_revision || 'Revision unavailable'}</small>
+                    </button>
+                  ))
+                ) : (
+                  <p className="empty-widget">No project documents connected to this project.</p>
                 )}
                 </div>
               </div>
