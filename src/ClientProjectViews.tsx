@@ -7,6 +7,7 @@ import type { Craft_clients } from './generated/models/Craft_clientsModel'
 import type { Craft_contract1s } from './generated/models/Craft_contract1sModel'
 import type { Craft_contractors } from './generated/models/Craft_contractorsModel'
 import type { Craft_employees } from './generated/models/Craft_employeesModel'
+import type { Craft_inspections } from './generated/models/Craft_inspectionsModel'
 import type { Craft_permitapprovals } from './generated/models/Craft_permitapprovalsModel'
 import type { Craft_projectdocuments } from './generated/models/Craft_projectdocumentsModel'
 import type { Craft_projectphases } from './generated/models/Craft_projectphasesModel'
@@ -83,6 +84,16 @@ const workPackageBelongsToContractor = (workPackage: Craft_workpackages, contrac
   const workPackageContractorIds = [workPackage.craft_contractorid, workPackage._craft_contractor_value].filter(Boolean)
   const contractorIds = [contractor.craft_contractorid, contractor.craft_contractorid1].filter(Boolean)
   return workPackageContractorIds.some((contractorId) => contractorIds.includes(contractorId))
+}
+const inspectionBelongsToProject = (inspection: Craft_inspections, project: Craft_projects) => {
+  const inspectionProjectIds = [inspection.craft_projectid, inspection._craft_project_value].filter(Boolean)
+  const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
+  return inspectionProjectIds.some((projectId) => projectIds.includes(projectId))
+}
+const inspectionBelongsToEmployee = (inspection: Craft_inspections, employee: Craft_employees) => {
+  const inspectionEmployeeIds = [inspection.craft_inspectorid, inspection._craft_employeerecord_value].filter(Boolean)
+  const employeeIds = [employee.craft_employeeid, employee.craft_employeeid1].filter(Boolean)
+  return inspectionEmployeeIds.some((employeeId) => employeeIds.includes(employeeId))
 }
 
 export function ClientPage({ clients, projects, onOpenProjects }: ClientProjectViewProps) {
@@ -551,7 +562,7 @@ export function VariationOrdersPage({ clients, projects, variationOrders, select
   )
 }
 
-export function EmployeesPage({ projects, employees, selectedEmployeeId, onOpenProject }: { projects: Craft_projects[]; employees: Craft_employees[]; selectedEmployeeId?: string | null; onOpenProject?: (project: Craft_projects) => void }) {
+export function EmployeesPage({ projects, employees, inspections, selectedEmployeeId, onOpenProject, onOpenInspection }: { projects: Craft_projects[]; employees: Craft_employees[]; inspections: Craft_inspections[]; selectedEmployeeId?: string | null; onOpenProject?: (project: Craft_projects) => void; onOpenInspection?: (inspection: Craft_inspections) => void }) {
   const [search, setSearch] = useState('')
   const filteredEmployees = useMemo(() => {
     const query = search.toLowerCase()
@@ -576,6 +587,7 @@ export function EmployeesPage({ projects, employees, selectedEmployeeId, onOpenP
   }, [filteredEmployees, selectedEmployeeId])
 
   const relatedProjects = selectedEmployee ? projects.filter((project) => employeeBelongsToProject(project, selectedEmployee)) : []
+  const relatedInspections = selectedEmployee ? inspections.filter((inspection) => inspectionBelongsToEmployee(inspection, selectedEmployee)) : []
 
   return (
     <div className="entity-view">
@@ -644,8 +656,130 @@ export function EmployeesPage({ projects, employees, selectedEmployeeId, onOpenP
                   </>
                 ) : <p className="empty-widget">No related project records found.</p>}
               </section>
+              <section className="related-record-details">
+                <p className="eyebrow">Related inspections</p>
+                {relatedInspections.length > 0 ? <div className="related-record-list">{relatedInspections.map((inspection) => (
+                  <button className="related-project related-project-link" type="button" key={inspection.craft_inspectionid} onClick={() => onOpenInspection?.(inspection)}>
+                    <span>{inspection.craft_inspectionid1 || inspection.craft_inspectiontypename || inspection.craft_inspectionid}</span>
+                    <small>{inspection.craft_inspectiontypename || 'Inspection'} · {inspection.craft_inspectionresultname || 'Result unavailable'} · {date(inspection.craft_inspectiondate)}</small>
+                  </button>
+                ))}</div> : <p className="empty-widget">No inspections connected to this employee.</p>}
+              </section>
             </div>
           ) : <div className="empty-details"><strong>Select an employee</strong><span>Employee and related project details will appear here.</span></div>}
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+export function InspectionsPage({ projects, employees, inspections, selectedInspectionId, onOpenProject, onOpenEmployee }: { projects: Craft_projects[]; employees: Craft_employees[]; inspections: Craft_inspections[]; selectedInspectionId?: string | null; onOpenProject?: (project: Craft_projects) => void; onOpenEmployee?: (employee: Craft_employees) => void }) {
+  const [search, setSearch] = useState('')
+  const filteredInspections = useMemo(() => {
+    const query = search.toLowerCase()
+    return inspections.filter((inspection) => {
+      const project = projects.find((candidate) => inspectionBelongsToProject(inspection, candidate))
+      const employee = employees.find((candidate) => inspectionBelongsToEmployee(inspection, candidate))
+      return [
+        inspection.craft_inspectionid1,
+        inspection.craft_inspectionid,
+        inspection.craft_inspectiontypename,
+        inspection.craft_inspectionresultname,
+        inspection.craft_location,
+        inspection.craft_remarks,
+        project?.craft_projectname,
+        project?.craft_projectid1,
+        employee?.craft_fullname,
+        employee?.craft_employeeid1,
+      ].some((value) => value?.toLowerCase().includes(query))
+    })
+  }, [employees, inspections, projects, search])
+  const [selectedInspection, setSelectedInspection] = useState<Craft_inspections | null>(null)
+
+  useEffect(() => {
+    const requestedInspection = selectedInspectionId
+      ? filteredInspections.find((inspection) => inspection.craft_inspectionid === selectedInspectionId)
+      : undefined
+    setSelectedInspection(requestedInspection ?? (current => current && filteredInspections.some((inspection) => inspection.craft_inspectionid === current.craft_inspectionid)
+      ? current
+      : filteredInspections[0] ?? null))
+  }, [filteredInspections, selectedInspectionId])
+
+  const relatedProjects = selectedInspection ? projects.filter((project) => inspectionBelongsToProject(selectedInspection, project)) : []
+  const relatedEmployees = selectedInspection ? employees.filter((employee) => inspectionBelongsToEmployee(selectedInspection, employee)) : []
+
+  return (
+    <div className="entity-view">
+      <header className="entity-header">
+        <div><p className="eyebrow">Dubai ERP / Quality</p><h1>Inspections</h1><p className="subtitle">Review inspection outcomes, corrective actions, and linked project and employee records.</p></div>
+      </header>
+      <section className="entity-toolbar">
+        <label className="search-field"><span>Search inspections</span><input type="search" placeholder="Search inspection, project, employee..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <span className="result-count">Showing {filteredInspections.length} records</span>
+      </section>
+      <div className="entity-content-grid">
+        <section className="table-panel entity-project-table">
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Inspection</th><th>Type</th><th>Project</th><th>Inspector</th><th>Result</th><th>Date</th></tr></thead>
+              <tbody>
+                {filteredInspections.map((inspection) => {
+                  const project = projects.find((candidate) => inspectionBelongsToProject(inspection, candidate))
+                  const employee = employees.find((candidate) => inspectionBelongsToEmployee(inspection, candidate))
+                  return (
+                    <tr className={selectedInspection?.craft_inspectionid === inspection.craft_inspectionid ? 'selected-row' : ''} key={inspection.craft_inspectionid} onClick={() => setSelectedInspection(inspection)}>
+                      <td className="equipment-name">{inspection.craft_inspectionid1 || inspection.craft_inspectionid}<small>{inspection.craft_inspectionid}</small></td>
+                      <td>{inspection.craft_inspectiontypename || 'Inspection'}</td>
+                      <td>{project?.craft_projectname || project?.craft_projectid1 || project?.craft_projectid || '-'}</td>
+                      <td>{employee?.craft_fullname || inspection.craft_inspectorid || '-'}</td>
+                      <td>{inspection.craft_inspectionresultname || 'Unknown'}</td>
+                      <td>{date(inspection.craft_inspectiondate)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {filteredInspections.length === 0 && <p className="table-message">No inspections match your search.</p>}
+        </section>
+        <aside className="details-panel entity-details-panel">
+          {selectedInspection ? (
+            <div className="details-content">
+              <div className="panel-heading">
+                <div><p className="eyebrow">Inspection details</p><h2>{selectedInspection.craft_inspectionid1 || selectedInspection.craft_inspectiontypename || selectedInspection.craft_inspectionid}</h2></div>
+                <span className={`status status-${(selectedInspection.craft_inspectionresultname || 'unknown').toLowerCase().replaceAll(' ', '-')}`}>{selectedInspection.craft_inspectionresultname || 'Unknown'}</span>
+              </div>
+              <dl className="details-list">
+                <div><dt>Inspection type</dt><dd>{selectedInspection.craft_inspectiontypename || '-'}</dd></div>
+                <div><dt>Inspection date</dt><dd>{date(selectedInspection.craft_inspectiondate)}</dd></div>
+                <div><dt>Location</dt><dd>{selectedInspection.craft_location || '-'}</dd></div>
+                <div><dt>Inspector</dt><dd>{selectedInspection.craft_inspectorid || '-'}</dd></div>
+                <div><dt>Defects found</dt><dd>{selectedInspection.craft_defectsfound ?? '-'}</dd></div>
+                <div><dt>Corrective action</dt><dd>{selectedInspection.craft_correctiveaction || '-'}</dd></div>
+                <div><dt>Reinspection date</dt><dd>{date(selectedInspection.craft_reinspectiondate)}</dd></div>
+                <div><dt>Remarks</dt><dd>{selectedInspection.craft_remarks || '-'}</dd></div>
+                <div><dt>Internal notes</dt><dd>{selectedInspection.craft_internalnotes || '-'}</dd></div>
+              </dl>
+              <section className="related-record-details">
+                <p className="eyebrow">Related projects</p>
+                {relatedProjects.length > 0 ? <div className="related-record-list">{relatedProjects.map((project) => (
+                  <button className="related-project related-project-link" type="button" key={project.craft_projectid} onClick={() => onOpenProject?.(project)}>
+                    <span>{project.craft_projectname || project.craft_projectid1 || project.craft_projectid}</span>
+                    <small>{project.craft_location || 'Location unavailable'} · {healthStatus(project)} · Open project record</small>
+                  </button>
+                ))}</div> : <p className="empty-widget">No related project record found.</p>}
+              </section>
+              <section className="related-record-details">
+                <p className="eyebrow">Related employees</p>
+                {relatedEmployees.length > 0 ? <div className="related-record-list">{relatedEmployees.map((employee) => (
+                  <button className="related-project related-project-link" type="button" key={employee.craft_employeeid} onClick={() => onOpenEmployee?.(employee)}>
+                    <span>{employee.craft_fullname || employee.craft_employeeid1 || employee.craft_employeeid}</span>
+                    <small>{employee.craft_designation || 'Role unavailable'} · {employee.craft_department || 'Department unavailable'} · Open employee record</small>
+                  </button>
+                ))}</div> : <p className="empty-widget">No related employee record found.</p>}
+              </section>
+            </div>
+          ) : <div className="empty-details"><strong>Select an inspection</strong><span>Inspection and related project and employee details will appear here.</span></div>}
         </aside>
       </div>
     </div>
@@ -1095,7 +1229,7 @@ export function ProjectDocumentsPage({ clients, projects, projectDocuments, sele
   )
 }
 
-export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], projectDocuments = [], employees = [], contracts = [], workPackages = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, onOpenProjectDocument, onOpenEmployee, onOpenContract, onOpenWorkPackage, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; projectDocuments?: Craft_projectdocuments[]; employees?: Craft_employees[]; contracts?: Craft_contract1s[]; workPackages?: Craft_workpackages[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void; onOpenProjectDocument?: (projectDocument: Craft_projectdocuments) => void; onOpenEmployee?: (employee: Craft_employees) => void; onOpenContract?: (contract: Craft_contract1s) => void; onOpenWorkPackage?: (workPackage: Craft_workpackages) => void }) {
+export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], projectDocuments = [], employees = [], contracts = [], workPackages = [], inspections = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, onOpenProjectDocument, onOpenEmployee, onOpenContract, onOpenWorkPackage, onOpenInspection, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; projectDocuments?: Craft_projectdocuments[]; employees?: Craft_employees[]; contracts?: Craft_contract1s[]; workPackages?: Craft_workpackages[]; inspections?: Craft_inspections[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void; onOpenProjectDocument?: (projectDocument: Craft_projectdocuments) => void; onOpenEmployee?: (employee: Craft_employees) => void; onOpenContract?: (contract: Craft_contract1s) => void; onOpenWorkPackage?: (workPackage: Craft_workpackages) => void; onOpenInspection?: (inspection: Craft_inspections) => void }) {
   const [search, setSearch] = useState('')
   const [clientFilter, setClientFilter] = useState(selectedClientId)
   const [selectedProject, setSelectedProject] = useState<Craft_projects | null>(null)
@@ -1162,6 +1296,7 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
   const relatedContracts = selectedProject ? contracts.filter((contract) => contractBelongsToProject(contract, selectedProject)) : []
   const relatedEmployees = selectedProject ? employees.filter((employee) => employeeBelongsToProject(selectedProject, employee)) : []
   const relatedWorkPackages = selectedProject ? workPackages.filter((workPackage) => workPackageBelongsToProject(workPackage, selectedProject)) : []
+  const relatedInspections = selectedProject ? inspections.filter((inspection) => inspectionBelongsToProject(inspection, selectedProject)) : []
 
   return (
     <div className="entity-view">
@@ -1334,6 +1469,24 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
                   ))
                 ) : (
                   <p className="empty-widget">No work packages connected to this project.</p>
+                )}
+                </div>
+              </div>
+
+              <div className="related-projects">
+                <div className="related-heading">
+                  <h3>Inspections</h3>
+                </div>
+                <div className="related-record-list">
+                {relatedInspections.length > 0 ? (
+                  relatedInspections.map((inspection) => (
+                    <button className="related-project" type="button" key={inspection.craft_inspectionid} onClick={() => onOpenInspection?.(inspection)}>
+                      <span>{inspection.craft_inspectionid1 || inspection.craft_inspectiontypename || inspection.craft_inspectionid}</span>
+                      <small>{inspection.craft_inspectiontypename || 'Inspection'} · {inspection.craft_inspectionresultname || 'Result unavailable'} · {date(inspection.craft_inspectiondate)}</small>
+                    </button>
+                  ))
+                ) : (
+                  <p className="empty-widget">No inspections connected to this project.</p>
                 )}
                 </div>
               </div>
