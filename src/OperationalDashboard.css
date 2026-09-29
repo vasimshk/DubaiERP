@@ -12,7 +12,7 @@
   --ops-red-soft: #faece9;
   color: var(--ops-ink);
   min-width: 0;
-  padding-bottom: 38px;
+  padding-bottom: 34px;
 }
 
 .ops-header,
@@ -32,11 +32,11 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 24px;
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 
 .ops-eyebrow {
-  margin: 0 0 7px;
+  margin: 0 0 6px;
   color: var(--ops-teal);
   font-size: 0.7rem;
   font-weight: 750;
@@ -52,7 +52,7 @@
 }
 
 .ops-subtitle {
-  margin: 9px 0 0;
+  margin: 7px 0 0;
   color: var(--ops-muted);
   max-width: 680px;
 }
@@ -89,10 +89,10 @@
 .ops-overview-table .ops-section-heading button,
 .ops-alert button {
   border: 1px solid var(--ops-line);
-  border-radius: 3px;
+  border-radius: 8px;
   background: var(--ops-paper);
   color: var(--ops-ink);
-  padding: 9px 12px;
+  padding: 8px 12px;
   font-size: 0.8rem;
   font-weight: 650;
   cursor: pointer;
@@ -115,10 +115,10 @@
 .ops-filter-bar {
   gap: 12px;
   flex-wrap: wrap;
-  padding: 13px 14px;
-  margin-bottom: 18px;
+  padding: 11px 14px;
+  margin-bottom: 15px;
   border: 1px solid var(--ops-line);
-  border-radius: 4px;
+  border-radius: 12px;
   background: var(--ops-paper);
 }
 
@@ -136,10 +136,10 @@
 .ops-table-pagination select {
   min-height: 35px;
   border: 1px solid #cbd8dc;
-  border-radius: 3px;
+  border-radius: 8px;
   background: #fff;
   color: var(--ops-ink);
-  padding: 6px 9px;
+  padding: 5px 9px;
   font: inherit;
   font-size: 0.82rem;
 }
@@ -160,7 +160,7 @@
 .ops-filter-count {
   align-self: end;
   margin-left: auto;
-  padding: 0 2px 8px;
+  padding: 0 2px 6px;
   color: var(--ops-muted);
   font-size: 0.76rem;
   white-space: nowrap;
@@ -172,11 +172,11 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 13px 15px;
-  margin: 0 0 18px;
+  padding: 11px 15px;
+  margin: 0 0 15px;
   border: 1px solid #ecd4a6;
   border-left: 4px solid var(--ops-amber);
-  border-radius: 3px;
+  border-radius: 12px;
   background: #fffaf0;
   color: var(--ops-ink);
   font-size: 0.84rem;
@@ -216,7 +216,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 11px;
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 
 .ops-kpi-card {
@@ -226,10 +226,10 @@
   flex-direction: column;
   justify-content: space-between;
   gap: 9px;
-  padding: 14px 15px;
+  padding: 12px 15px;
   border: 1px solid var(--ops-line);
   border-top: 3px solid #839b9b;
-  border-radius: 3px;
+  border-radius: 12px;
   background: var(--ops-paper);
 }
 
@@ -263,7 +263,7 @@
 .ops-dashboard-tabs {
   gap: 5px;
   border-bottom: 1px solid var(--ops-line);
-  margin: 6px 0 18px;
+  margin: 5px 0 15px;
 }
 
 .ops-dashboard-tabs button {
@@ -273,7 +273,7 @@
   border: 0;
   border-bottom: 3px solid transparent;
   margin-bottom: -1px;
-  padding: 11px 13px;
+  padding: 9px 13px;
   background: transparent;
   color: var(--ops-muted);
   font: inherit;
@@ -298,7 +298,7 @@
 .ops-section-heading {
   justify-content: space-between;
   gap: 12px;
-  margin: 20px 0 12px;
+  margin: 17px 0 10px;
 }
 
 .ops-section-heading h2,
@@ -322,13 +322,13 @@
 .ops-table-panel {
   min-width: 0;
   border: 1px solid var(--ops-line);
-  border-radius: 4px;
+  border-radius: 12px;
   background: var(--ops-paper);
 }
 
 .ops-chart-card {
   min-height: 230px;
-  padding: 15px 16px;
+  padding: 13px 16px;
 }
 
 .ops-chart-card header h3 {
@@ -347,7 +347,7 @@
 .ops-chart-bars {
   display: grid;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 13px;
 }
 
 .ops-chart-row {
@@ -489,7 +489,7 @@
   min-height: 128px;
   align-content: center;
   justify-items: center;
-  padding: 16px;
+  padding: 14px;
   color: var(--ops-muted);
   text-align: center;
 }
@@ -508,14 +508,14 @@
 .ops-chart-empty p,
 .ops-table-empty p {
   max-width: 410px;
-  margin: 9px 0 0;
+  margin: 7px 0 0;
   font-size: 0.76rem;
   line-height: 1.5;
 }
 
 .ops-table-section {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .ops-table-picker {
@@ -529,7 +529,7 @@
 .ops-table-heading {
   justify-content: space-between;
   gap: 18px;
-  padding: 15px 16px;
+  padding: 13px 16px;
 }
 
 .ops-table-search {
@@ -550,7 +550,7 @@
 
 .ops-data-table th,
 .ops-data-table td {
-  padding: 10px 12px;
+  padding: 9px 12px;
   border-top: 1px solid #e8eeee;
   color: #405b69;
   font-size: 0.76rem;
@@ -587,7 +587,7 @@
 .ops-table-footer {
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 8px 14px;
   border-top: 1px solid var(--ops-line);
   color: var(--ops-muted);
   font-size: 0.72rem;
@@ -612,11 +612,11 @@
 }
 
 .ops-overview-table {
-  margin-top: 22px;
+  margin-top: 18px;
 }
 
 .ops-overview-table .ops-table-heading {
-  padding: 12px 0;
+  padding: 10px 0;
 }
 
 .ops-overview-table .ops-table-heading > div > p {
@@ -628,7 +628,7 @@
 }
 
 .ops-definition-note {
-  margin-top: 18px;
+  margin-top: 15px;
   color: var(--ops-muted);
   font-size: 0.7rem;
   line-height: 1.5;
@@ -719,8 +719,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 12px;
-  margin: -8px 0 16px;
+  padding: 7px 12px;
+  margin: -7px 0 13px;
   border-left: 3px solid var(--ops-teal);
   background: var(--ops-teal-soft);
   color: var(--ops-ink);
@@ -739,15 +739,15 @@
 }
 
 .ops-portfolio-overview {
-  padding: 15px 17px 11px;
-  margin-bottom: 20px;
+  padding: 13px 17px 9px;
+  margin-bottom: 17px;
   border: 1px solid var(--ops-line);
-  border-radius: 3px;
+  border-radius: 12px;
   background: #fff;
 }
 
 .ops-portfolio-overview .ops-section-heading {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
 }
 
 .ops-overview-actions {
@@ -759,7 +759,7 @@
 }
 
 .ops-portfolio-overview.is-collapsed {
-  padding-bottom: 8px;
+  padding-bottom: 7px;
 }
 
 .ops-metric-strip-grid {
@@ -771,12 +771,12 @@
 .ops-metric-strip {
   display: flex;
   min-width: 0;
-  min-height: 74px;
+  min-height: 68px;
   align-items: center;
   gap: 11px;
   border: 0;
   border-bottom: 1px solid #e9eeee;
-  padding: 10px 7px;
+  padding: 8px 7px;
   background: transparent;
   color: var(--ops-ink);
   text-align: left;
@@ -865,7 +865,7 @@
   min-height: 34px;
   max-width: 310px;
   border: 1px solid var(--ops-line);
-  border-radius: 3px;
+  border-radius: 8px;
   background: #fff;
   color: var(--ops-ink);
   padding: 5px 8px;
@@ -874,19 +874,19 @@
 }
 
 .ops-chart-section {
-  margin-bottom: 23px;
+  margin-bottom: 19px;
 }
 
 .ops-chart-section .ops-section-heading {
-  margin: 0 0 10px;
-  padding-bottom: 8px;
+  margin: 0 0 8px;
+  padding-bottom: 6px;
   border-bottom: 1px solid var(--ops-line);
 }
 
 .ops-panel {
   min-width: 0;
   border: 1px solid var(--ops-line);
-  border-radius: 3px;
+  border-radius: 12px;
   background: #fff;
   box-shadow: 0 2px 7px rgba(21, 57, 64, 0.035);
 }
@@ -905,11 +905,11 @@
 
 .ops-panel-header {
   display: flex;
-  min-height: 76px;
+  min-height: 70px;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  padding: 12px 14px;
+  padding: 10px 14px;
   border-bottom: 1px solid #edf1f0;
 }
 
@@ -977,7 +977,7 @@
   display: flex;
   min-height: 244px;
   flex-direction: column;
-  padding: 9px 11px 10px;
+  padding: 8px 11px 9px;
 }
 
 .ops-chart-body {
@@ -1039,7 +1039,7 @@
   min-height: 64px;
   justify-items: start;
   border: 1px solid rgba(24, 51, 69, 0.09);
-  border-radius: 2px;
+  border-radius: 8px;
   padding: 7px 8px;
   color: var(--ops-ink);
   text-align: left;
@@ -1074,14 +1074,14 @@
   align-items: end;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border: 1px solid var(--ops-line);
-  border-radius: 3px;
+  border-radius: 10px;
   background: #fff;
 }
 
 .ops-table-selector > span {
-  padding-bottom: 8px;
+  padding-bottom: 6px;
   color: var(--ops-muted);
   font-size: 0.72rem;
 }
@@ -1099,7 +1099,7 @@
   align-items: end;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 13px;
+  padding: 8px 13px;
 }
 
 .ops-table-tools label {
@@ -1114,14 +1114,14 @@
 .ops-table-tools input {
   min-height: 34px;
   border: 1px solid var(--ops-line);
-  border-radius: 2px;
-  padding: 6px 8px;
+  border-radius: 8px;
+  padding: 5px 8px;
   font: inherit;
   font-size: 0.78rem;
 }
 
 .ops-table-tools > span {
-  padding-bottom: 8px;
+  padding-bottom: 6px;
   color: var(--ops-muted);
   font-size: 0.68rem;
 }
@@ -1168,7 +1168,7 @@
 .ops-table-footer select {
   min-height: 28px;
   border: 1px solid var(--ops-line);
-  border-radius: 2px;
+  border-radius: 8px;
   background: #fff;
   color: var(--ops-ink);
 }
@@ -1178,14 +1178,14 @@
   min-height: 178px;
   align-content: center;
   justify-items: center;
-  padding: 20px;
+  padding: 16px 20px;
   color: var(--ops-muted);
   text-align: center;
 }
 
 .ops-empty-state p {
   max-width: 440px;
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   font-size: 0.75rem;
   line-height: 1.5;
 }

@@ -6,6 +6,7 @@ import { Craft_projectscraft_healthstatus } from './generated/models/Craft_proje
 import type { Craft_clients } from './generated/models/Craft_clientsModel'
 import type { Craft_contract1s } from './generated/models/Craft_contract1sModel'
 import type { Craft_contractors } from './generated/models/Craft_contractorsModel'
+import type { Craft_dailysitereports } from './generated/models/Craft_dailysitereportsModel'
 import type { Craft_employees } from './generated/models/Craft_employeesModel'
 import type { Craft_inspections } from './generated/models/Craft_inspectionsModel'
 import type { Craft_paymentapplications } from './generated/models/Craft_paymentapplicationsModel'
@@ -14,8 +15,10 @@ import type { Craft_projectdocuments } from './generated/models/Craft_projectdoc
 import type { Craft_projectphases } from './generated/models/Craft_projectphasesModel'
 import type { Craft_projects } from './generated/models/Craft_projectsModel'
 import type { Craft_safetyincidents } from './generated/models/Craft_safetyincidentsModel'
+import type { Craft_suppliers } from './generated/models/Craft_suppliersModel'
 import type { Craft_variationorders } from './generated/models/Craft_variationordersModel'
 import type { Craft_workpackages } from './generated/models/Craft_workpackagesModel'
+import type { Craft_purchaseorders } from './generated/models/Craft_purchaseordersModel'
 
 type ClientProjectViewProps = {
   clients: Craft_clients[]
@@ -105,6 +108,26 @@ const paymentApplicationBelongsToContract = (payment: Craft_paymentapplications,
   const paymentContractIds = [payment.craft_contractid, payment._craft_contract1_value].filter(Boolean)
   const contractIds = [contract.craft_contract1id, contract.craft_contractid1].filter(Boolean)
   return paymentContractIds.some((contractId) => contractIds.includes(contractId))
+}
+const dailySiteReportBelongsToProject = (report: Craft_dailysitereports, project: Craft_projects) => {
+  const reportProjectIds = [report.craft_projectid, report._craft_project_value].filter(Boolean)
+  const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
+  return reportProjectIds.some((projectId) => projectIds.includes(projectId))
+}
+const dailySiteReportBelongsToEmployee = (report: Craft_dailysitereports, employee: Craft_employees) => {
+  const reportEmployeeIds = [report._craft_employee_value].filter(Boolean)
+  const employeeIds = [employee.craft_employeeid, employee.craft_employeeid1].filter(Boolean)
+  return reportEmployeeIds.some((employeeId) => employeeIds.includes(employeeId))
+}
+const purchaseOrderBelongsToProject = (purchaseOrder: Craft_purchaseorders, project: Craft_projects) => {
+  const purchaseOrderProjectIds = [purchaseOrder.craft_projectid, purchaseOrder._craft_project_value].filter(Boolean)
+  const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
+  return purchaseOrderProjectIds.some((projectId) => projectIds.includes(projectId))
+}
+const purchaseOrderBelongsToSupplier = (purchaseOrder: Craft_purchaseorders, supplier: Craft_suppliers) => {
+  const purchaseOrderSupplierIds = [purchaseOrder._craft_supplier_value, purchaseOrder.craft_vendorid].filter(Boolean)
+  const supplierIds = [supplier.craft_supplierid, supplier.craft_supplierid1].filter(Boolean)
+  return purchaseOrderSupplierIds.some((supplierId) => supplierIds.includes(supplierId))
 }
 
 export function ClientPage({ clients, projects, onOpenProjects }: ClientProjectViewProps) {
@@ -573,7 +596,7 @@ export function VariationOrdersPage({ clients, projects, variationOrders, select
   )
 }
 
-export function EmployeesPage({ projects, employees, inspections, selectedEmployeeId, onOpenProject, onOpenInspection }: { projects: Craft_projects[]; employees: Craft_employees[]; inspections: Craft_inspections[]; selectedEmployeeId?: string | null; onOpenProject?: (project: Craft_projects) => void; onOpenInspection?: (inspection: Craft_inspections) => void }) {
+export function EmployeesPage({ projects, employees, inspections, dailySiteReports, selectedEmployeeId, onOpenProject, onOpenInspection, onOpenDailySiteReport }: { projects: Craft_projects[]; employees: Craft_employees[]; inspections: Craft_inspections[]; dailySiteReports: Craft_dailysitereports[]; selectedEmployeeId?: string | null; onOpenProject?: (project: Craft_projects) => void; onOpenInspection?: (inspection: Craft_inspections) => void; onOpenDailySiteReport?: (report: Craft_dailysitereports) => void }) {
   const [search, setSearch] = useState('')
   const filteredEmployees = useMemo(() => {
     const query = search.toLowerCase()
@@ -599,6 +622,7 @@ export function EmployeesPage({ projects, employees, inspections, selectedEmploy
 
   const relatedProjects = selectedEmployee ? projects.filter((project) => employeeBelongsToProject(project, selectedEmployee)) : []
   const relatedInspections = selectedEmployee ? inspections.filter((inspection) => inspectionBelongsToEmployee(inspection, selectedEmployee)) : []
+  const relatedDailySiteReports = selectedEmployee ? dailySiteReports.filter((report) => dailySiteReportBelongsToEmployee(report, selectedEmployee)) : []
 
   return (
     <div className="entity-view">
@@ -675,6 +699,15 @@ export function EmployeesPage({ projects, employees, inspections, selectedEmploy
                     <small>{inspection.craft_inspectiontypename || 'Inspection'} · {inspection.craft_inspectionresultname || 'Result unavailable'} · {date(inspection.craft_inspectiondate)}</small>
                   </button>
                 ))}</div> : <p className="empty-widget">No inspections connected to this employee.</p>}
+              </section>
+              <section className="related-record-details">
+                <p className="eyebrow">Related daily site reports</p>
+                {relatedDailySiteReports.length > 0 ? <div className="related-record-list">{relatedDailySiteReports.map((report) => (
+                  <button className="related-project related-project-link" type="button" key={report.craft_dailysitereportid} onClick={() => onOpenDailySiteReport?.(report)}>
+                    <span>{report.craft_reportid || report.craft_dailysitereportid}</span>
+                    <small>{date(report.craft_reportdate)} · {report.craft_weatherconditionname || 'Weather unavailable'} · {report.craft_workdescription || 'No work description'}</small>
+                  </button>
+                ))}</div> : <p className="empty-widget">No daily site reports connected to this employee.</p>}
               </section>
             </div>
           ) : <div className="empty-details"><strong>Select an employee</strong><span>Employee and related project details will appear here.</span></div>}
@@ -797,6 +830,119 @@ export function InspectionsPage({ projects, employees, inspections, selectedInsp
   )
 }
 
+export function DailySiteReportsPage({ projects, employees, reports, selectedReportId, onOpenProject, onOpenEmployee }: { projects: Craft_projects[]; employees: Craft_employees[]; reports: Craft_dailysitereports[]; selectedReportId?: string | null; onOpenProject?: (project: Craft_projects) => void; onOpenEmployee?: (employee: Craft_employees) => void }) {
+  const [search, setSearch] = useState('')
+  const filteredReports = useMemo(() => {
+    const query = search.toLowerCase()
+    return reports.filter((report) => {
+      const project = projects.find((candidate) => dailySiteReportBelongsToProject(report, candidate))
+      const employee = employees.find((candidate) => dailySiteReportBelongsToEmployee(report, candidate))
+      return [
+        report.craft_reportid,
+        report.craft_dailysitereportid,
+        report.craft_workdescription,
+        report.craft_reportedissues,
+        report.craft_weatherconditionname,
+        project?.craft_projectname,
+        project?.craft_projectid1,
+        employee?.craft_fullname,
+        employee?.craft_employeeid1,
+      ].some((value) => value?.toLowerCase().includes(query))
+    })
+  }, [employees, projects, reports, search])
+  const [selectedReport, setSelectedReport] = useState<Craft_dailysitereports | null>(null)
+
+  useEffect(() => {
+    const requestedReport = selectedReportId
+      ? filteredReports.find((report) => report.craft_dailysitereportid === selectedReportId)
+      : undefined
+    setSelectedReport((current) => requestedReport
+      ?? (current && filteredReports.some((report) => report.craft_dailysitereportid === current.craft_dailysitereportid) ? current : filteredReports[0] ?? null))
+  }, [filteredReports, selectedReportId])
+
+  const relatedProjects = selectedReport ? projects.filter((project) => dailySiteReportBelongsToProject(selectedReport, project)) : []
+  const relatedEmployees = selectedReport ? employees.filter((employee) => dailySiteReportBelongsToEmployee(selectedReport, employee)) : []
+
+  return (
+    <div className="entity-view">
+      <header className="entity-header">
+        <div><p className="eyebrow">Dubai ERP / Delivery</p><h1>Daily Site Reports</h1><p className="subtitle">Review site progress, manpower, conditions, and related project and employee records.</p></div>
+      </header>
+      <section className="entity-toolbar">
+        <label className="search-field"><span>Search daily site reports</span><input type="search" placeholder="Search report, project, employee, work..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <span className="result-count">Showing {filteredReports.length} records</span>
+      </section>
+      <div className="entity-content-grid">
+        <section className="table-panel entity-project-table">
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Report</th><th>Date</th><th>Project</th><th>Prepared by</th><th>Weather</th><th>Direct manpower</th></tr></thead>
+              <tbody>
+                {filteredReports.map((report) => {
+                  const project = projects.find((candidate) => dailySiteReportBelongsToProject(report, candidate))
+                  const employee = employees.find((candidate) => dailySiteReportBelongsToEmployee(report, candidate))
+                  return (
+                    <tr className={selectedReport?.craft_dailysitereportid === report.craft_dailysitereportid ? 'selected-row' : ''} key={report.craft_dailysitereportid} onClick={() => setSelectedReport(report)}>
+                      <td className="equipment-name">{report.craft_reportid || report.craft_dailysitereportid}<small>{report.craft_dailysitereportid}</small></td>
+                      <td>{date(report.craft_reportdate)}</td>
+                      <td>{project?.craft_projectname || project?.craft_projectid1 || project?.craft_projectid || '-'}</td>
+                      <td>{employee?.craft_fullname || report.craft_preparedby || '-'}</td>
+                      <td>{report.craft_weatherconditionname || 'Unknown'}</td>
+                      <td>{report.craft_directmanpower ?? '-'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {filteredReports.length === 0 && <p className="table-message">No daily site reports match your search.</p>}
+        </section>
+        <aside className="details-panel entity-details-panel">
+          {selectedReport ? (
+            <div className="details-content">
+              <div className="panel-heading">
+                <div><p className="eyebrow">Daily site report details</p><h2>{selectedReport.craft_reportid || selectedReport.craft_dailysitereportid}</h2></div>
+                <span className={`status status-${(selectedReport.craft_weatherconditionname || 'unknown').toLowerCase().replaceAll(' ', '-')}`}>{selectedReport.craft_weatherconditionname || 'Unknown'}</span>
+              </div>
+              <dl className="details-list">
+                <div><dt>Report date</dt><dd>{date(selectedReport.craft_reportdate)}</dd></div>
+                <div><dt>Prepared by</dt><dd>{selectedReport.craft_preparedby || '-'}</dd></div>
+                <div><dt>Work description</dt><dd>{selectedReport.craft_workdescription || '-'}</dd></div>
+                <div><dt>Reported issues</dt><dd>{selectedReport.craft_reportedissues || '-'}</dd></div>
+                <div><dt>Weather</dt><dd>{selectedReport.craft_weatherconditionname || '-'}</dd></div>
+                <div><dt>Temperature</dt><dd>{selectedReport.craft_temperaturecelsius == null ? '-' : `${selectedReport.craft_temperaturecelsius}°C`}</dd></div>
+                <div><dt>Direct manpower</dt><dd>{selectedReport.craft_directmanpower ?? '-'}</dd></div>
+                <div><dt>Subcontracted manpower</dt><dd>{selectedReport.craft_subcontractedmanpower ?? '-'}</dd></div>
+                <div><dt>Equipment on site</dt><dd>{selectedReport.craft_equipmentonsite ?? '-'}</dd></div>
+                <div><dt>Visitors</dt><dd>{selectedReport.craft_numberofvisitors ?? '-'}</dd></div>
+                <div><dt>Internal notes</dt><dd>{selectedReport.craft_internalnotes || '-'}</dd></div>
+              </dl>
+              <section className="related-record-details">
+                <p className="eyebrow">Related projects</p>
+                {relatedProjects.length > 0 ? <div className="related-record-list">{relatedProjects.map((project) => (
+                  <button className="related-project related-project-link" type="button" key={project.craft_projectid} onClick={() => onOpenProject?.(project)}>
+                    <span>{project.craft_projectname || project.craft_projectid1 || project.craft_projectid}</span>
+                    <small>{project.craft_location || 'Location unavailable'} · {healthStatus(project)} · Open project record</small>
+                  </button>
+                ))}</div> : <p className="empty-widget">No related project record found.</p>}
+              </section>
+              <section className="related-record-details">
+                <p className="eyebrow">Related employees</p>
+                {relatedEmployees.length > 0 ? <div className="related-record-list">{relatedEmployees.map((employee) => (
+                  <button className="related-project related-project-link" type="button" key={employee.craft_employeeid} onClick={() => onOpenEmployee?.(employee)}>
+                    <span>{employee.craft_fullname || employee.craft_employeeid1 || employee.craft_employeeid}</span>
+                    <small>{employee.craft_designation || 'Role unavailable'} · {employee.craft_department || 'Department unavailable'} · Open employee record</small>
+                  </button>
+                ))}</div> : <p className="empty-widget">No related employee record found.</p>}
+              </section>
+            </div>
+          ) : <div className="empty-details"><strong>Select a daily site report</strong><span>Report and related project and employee details will appear here.</span></div>}
+        </aside>
+      </div>
+    </div>
+  )
+}
+
 export function ContractorsPage({ projects, contractors, contracts, selectedContractorId, onOpenContract }: { clients: Craft_clients[]; projects: Craft_projects[]; contractors: Craft_contractors[]; contracts: Craft_contract1s[]; selectedContractorId?: string | null; onOpenContract?: (contract: Craft_contract1s) => void; onOpenProject?: (project: Craft_projects) => void }) {
   const [search, setSearch] = useState('')
   const filteredContractors = useMemo(() => {
@@ -893,6 +1039,211 @@ export function ContractorsPage({ projects, contractors, contracts, selectedCont
               </section>
             </div>
           ) : <div className="empty-details"><strong>Select a contractor</strong><span>Contractor and related contract details will appear here.</span></div>}
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+export function PurchaseOrdersPage({ projects, suppliers, purchaseOrders, selectedPurchaseOrderId, onOpenProject, onOpenSupplier }: { projects: Craft_projects[]; suppliers: Craft_suppliers[]; purchaseOrders: Craft_purchaseorders[]; selectedPurchaseOrderId?: string | null; onOpenProject?: (project: Craft_projects) => void; onOpenSupplier?: (supplier: Craft_suppliers) => void }) {
+  const [search, setSearch] = useState('')
+  const filteredPurchaseOrders = useMemo(() => {
+    const query = search.toLowerCase()
+    return purchaseOrders.filter((purchaseOrder) => {
+      const project = projects.find((candidate) => purchaseOrderBelongsToProject(purchaseOrder, candidate))
+      const supplier = suppliers.find((candidate) => purchaseOrderBelongsToSupplier(purchaseOrder, candidate))
+      return [
+        purchaseOrder.craft_purchaseorderid1,
+        purchaseOrder.craft_purchaseorderid,
+        purchaseOrder.craft_description,
+        purchaseOrder.craft_purchaseordertypename,
+        purchaseOrder.craft_statusname,
+        supplier?.craft_companyname,
+        supplier?.craft_supplierid1,
+        project?.craft_projectname,
+        project?.craft_projectid1,
+      ].some((value) => value?.toLowerCase().includes(query))
+    })
+  }, [projects, purchaseOrders, search, suppliers])
+  const [selectedPurchaseOrder, setSelectedPurchaseOrder] = useState<Craft_purchaseorders | null>(null)
+
+  useEffect(() => {
+    const requestedPurchaseOrder = selectedPurchaseOrderId
+      ? filteredPurchaseOrders.find((purchaseOrder) => purchaseOrder.craft_purchaseorderid === selectedPurchaseOrderId)
+      : undefined
+    setSelectedPurchaseOrder((current) => requestedPurchaseOrder
+      ?? (current && filteredPurchaseOrders.some((purchaseOrder) => purchaseOrder.craft_purchaseorderid === current.craft_purchaseorderid) ? current : filteredPurchaseOrders[0] ?? null))
+  }, [filteredPurchaseOrders, selectedPurchaseOrderId])
+
+  const selectedProject = selectedPurchaseOrder ? projects.find((project) => purchaseOrderBelongsToProject(selectedPurchaseOrder, project)) : undefined
+  const selectedSupplier = selectedPurchaseOrder ? suppliers.find((supplier) => purchaseOrderBelongsToSupplier(selectedPurchaseOrder, supplier)) : undefined
+
+  return (
+    <div className="entity-view">
+      <header className="entity-header">
+        <div><p className="eyebrow">Dubai ERP / Procurement</p><h1>Purchase Orders</h1><p className="subtitle">Review purchase commitments, delivery dates, and related project and supplier records.</p></div>
+      </header>
+      <section className="entity-toolbar">
+        <label className="search-field"><span>Search purchase orders</span><input type="search" placeholder="Search order, project, supplier, status..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <span className="result-count">Showing {filteredPurchaseOrders.length} records</span>
+      </section>
+      <div className="entity-content-grid">
+        <section className="table-panel entity-project-table">
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Purchase order</th><th>Project</th><th>Supplier</th><th>Type</th><th>Status</th><th>Amount</th><th>Delivery date</th></tr></thead>
+              <tbody>
+                {filteredPurchaseOrders.map((purchaseOrder) => {
+                  const project = projects.find((candidate) => purchaseOrderBelongsToProject(purchaseOrder, candidate))
+                  const supplier = suppliers.find((candidate) => purchaseOrderBelongsToSupplier(purchaseOrder, candidate))
+                  return (
+                    <tr className={selectedPurchaseOrder?.craft_purchaseorderid === purchaseOrder.craft_purchaseorderid ? 'selected-row' : ''} key={purchaseOrder.craft_purchaseorderid} onClick={() => setSelectedPurchaseOrder(purchaseOrder)}>
+                      <td className="equipment-name">{purchaseOrder.craft_purchaseorderid1 || purchaseOrder.craft_purchaseorderid}<small>{purchaseOrder.craft_purchaseorderid}</small></td>
+                      <td>{project?.craft_projectname || project?.craft_projectid1 || project?.craft_projectid || '-'}</td>
+                      <td>{supplier?.craft_companyname || supplier?.craft_supplierid1 || '-'}</td>
+                      <td>{purchaseOrder.craft_purchaseordertypename || 'Purchase order'}</td>
+                      <td>{purchaseOrder.craft_statusname || 'Unknown'}</td>
+                      <td>{money(purchaseOrder.craft_amountaed)}</td>
+                      <td>{date(purchaseOrder.craft_deliverydate)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {filteredPurchaseOrders.length === 0 && <p className="table-message">No purchase orders match your search.</p>}
+        </section>
+        <aside className="details-panel entity-details-panel">
+          {selectedPurchaseOrder ? (
+            <div className="details-content">
+              <div className="panel-heading">
+                <div><p className="eyebrow">Purchase order details</p><h2>{selectedPurchaseOrder.craft_purchaseorderid1 || selectedPurchaseOrder.craft_purchaseorderid}</h2></div>
+                <span className={`status status-${(selectedPurchaseOrder.craft_statusname || 'unknown').toLowerCase().replaceAll(' ', '-')}`}>{selectedPurchaseOrder.craft_statusname || 'Unknown'}</span>
+              </div>
+              <dl className="details-list">
+                <div><dt>Order ID</dt><dd>{selectedPurchaseOrder.craft_purchaseorderid}</dd></div>
+                <div><dt>Description</dt><dd>{selectedPurchaseOrder.craft_description || '-'}</dd></div>
+                <div><dt>Type</dt><dd>{selectedPurchaseOrder.craft_purchaseordertypename || '-'}</dd></div>
+                <div><dt>Amount</dt><dd>{money(selectedPurchaseOrder.craft_amountaed)}</dd></div>
+                <div><dt>Issue date</dt><dd>{date(selectedPurchaseOrder.craft_issuedate)}</dd></div>
+                <div><dt>Delivery date</dt><dd>{date(selectedPurchaseOrder.craft_deliverydate)}</dd></div>
+                <div><dt>Approved by</dt><dd>{selectedPurchaseOrder.craft_approvedby || '-'}</dd></div>
+                <div><dt>Internal notes</dt><dd>{selectedPurchaseOrder.craft_internalnotes || '-'}</dd></div>
+              </dl>
+              <section className="related-record-details">
+                <p className="eyebrow">Related project</p>
+                {selectedProject ? <button className="related-project related-project-link" type="button" onClick={() => onOpenProject?.(selectedProject)}>
+                  <span>{selectedProject.craft_projectname || selectedProject.craft_projectid1 || selectedProject.craft_projectid}</span>
+                  <small>{selectedProject.craft_location || 'Location unavailable'} · {healthStatus(selectedProject)} · Open project record</small>
+                </button> : <p className="empty-widget">No related project record found.</p>}
+              </section>
+              <section className="related-record-details">
+                <p className="eyebrow">Related supplier</p>
+                {selectedSupplier ? <button className="related-project related-project-link" type="button" onClick={() => onOpenSupplier?.(selectedSupplier)}>
+                  <span>{selectedSupplier.craft_companyname || selectedSupplier.craft_supplierid1 || selectedSupplier.craft_supplierid}</span>
+                  <small>{selectedSupplier.craft_category || 'Category unavailable'} · {selectedSupplier.craft_contactperson || 'Contact unavailable'} · Open supplier record</small>
+                </button> : <p className="empty-widget">No related supplier record found.</p>}
+              </section>
+            </div>
+          ) : <div className="empty-details"><strong>Select a purchase order</strong><span>Purchase order and related project and supplier details will appear here.</span></div>}
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+export function SuppliersPage({ suppliers, purchaseOrders, selectedSupplierId, onOpenPurchaseOrder }: { suppliers: Craft_suppliers[]; purchaseOrders: Craft_purchaseorders[]; selectedSupplierId?: string | null; onOpenPurchaseOrder?: (purchaseOrder: Craft_purchaseorders) => void }) {
+  const [search, setSearch] = useState('')
+  const filteredSuppliers = useMemo(() => {
+    const query = search.toLowerCase()
+    return suppliers.filter((supplier) => {
+      const orders = purchaseOrders.filter((purchaseOrder) => purchaseOrderBelongsToSupplier(purchaseOrder, supplier))
+      return [
+        supplier.craft_companyname,
+        supplier.craft_supplierid1,
+        supplier.craft_supplierid,
+        supplier.craft_category,
+        supplier.craft_contactperson,
+        supplier.craft_emailaddress,
+        ...orders.map((purchaseOrder) => purchaseOrder.craft_purchaseorderid1),
+      ].some((value) => value?.toLowerCase().includes(query))
+    })
+  }, [purchaseOrders, search, suppliers])
+  const [selectedSupplier, setSelectedSupplier] = useState<Craft_suppliers | null>(null)
+
+  useEffect(() => {
+    const requestedSupplier = selectedSupplierId
+      ? filteredSuppliers.find((supplier) => supplier.craft_supplierid === selectedSupplierId)
+      : undefined
+    setSelectedSupplier((current) => requestedSupplier
+      ?? (current && filteredSuppliers.some((supplier) => supplier.craft_supplierid === current.craft_supplierid) ? current : filteredSuppliers[0] ?? null))
+  }, [filteredSuppliers, selectedSupplierId])
+
+  const relatedPurchaseOrders = selectedSupplier ? purchaseOrders.filter((purchaseOrder) => purchaseOrderBelongsToSupplier(purchaseOrder, selectedSupplier)) : []
+
+  return (
+    <div className="entity-view">
+      <header className="entity-header">
+        <div><p className="eyebrow">Dubai ERP / Procurement</p><h1>Suppliers</h1><p className="subtitle">Review supplier capability, contact information, and linked purchase orders.</p></div>
+      </header>
+      <section className="entity-toolbar">
+        <label className="search-field"><span>Search suppliers</span><input type="search" placeholder="Search supplier, category, contact..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <span className="result-count">Showing {filteredSuppliers.length} records</span>
+      </section>
+      <div className="entity-content-grid">
+        <section className="table-panel entity-project-table">
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Supplier</th><th>Category</th><th>Contact</th><th>Status</th><th>Purchase orders</th><th>Phone</th></tr></thead>
+              <tbody>
+                {filteredSuppliers.map((supplier) => {
+                  const orderCount = purchaseOrders.filter((purchaseOrder) => purchaseOrderBelongsToSupplier(purchaseOrder, supplier)).length
+                  return (
+                    <tr className={selectedSupplier?.craft_supplierid === supplier.craft_supplierid ? 'selected-row' : ''} key={supplier.craft_supplierid} onClick={() => setSelectedSupplier(supplier)}>
+                      <td className="equipment-name">{supplier.craft_companyname || supplier.craft_supplierid1 || supplier.craft_supplierid}<small>{supplier.craft_supplierid1 || supplier.craft_supplierid}</small></td>
+                      <td>{supplier.craft_category || '-'}</td>
+                      <td>{supplier.craft_contactperson || '-'}</td>
+                      <td>{supplier.craft_statusname || 'Unknown'}</td>
+                      <td>{orderCount}</td>
+                      <td>{supplier.craft_phonenumber || '-'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {filteredSuppliers.length === 0 && <p className="table-message">No suppliers match your search.</p>}
+        </section>
+        <aside className="details-panel entity-details-panel">
+          {selectedSupplier ? (
+            <div className="details-content">
+              <div className="panel-heading">
+                <div><p className="eyebrow">Supplier details</p><h2>{selectedSupplier.craft_companyname || selectedSupplier.craft_supplierid1 || selectedSupplier.craft_supplierid}</h2></div>
+                <span className={`status status-${(selectedSupplier.craft_statusname || 'unknown').toLowerCase().replaceAll(' ', '-')}`}>{selectedSupplier.craft_statusname || 'Unknown'}</span>
+              </div>
+              <dl className="details-list">
+                <div><dt>Supplier ID</dt><dd>{selectedSupplier.craft_supplierid1 || selectedSupplier.craft_supplierid}</dd></div>
+                <div><dt>Category</dt><dd>{selectedSupplier.craft_category || '-'}</dd></div>
+                <div><dt>Contact person</dt><dd>{selectedSupplier.craft_contactperson || '-'}</dd></div>
+                <div><dt>Email</dt><dd>{selectedSupplier.craft_emailaddress || '-'}</dd></div>
+                <div><dt>Phone</dt><dd>{selectedSupplier.craft_phonenumber || '-'}</dd></div>
+                <div><dt>Address</dt><dd>{selectedSupplier.craft_address || '-'}</dd></div>
+                <div><dt>Payment terms</dt><dd>{selectedSupplier.craft_paymentterms || '-'}</dd></div>
+                <div><dt>Lead time</dt><dd>{selectedSupplier.craft_leadtimedays == null ? '-' : `${selectedSupplier.craft_leadtimedays} days`}</dd></div>
+                <div><dt>Tax registration</dt><dd>{selectedSupplier.craft_taxregistrationnumber || '-'}</dd></div>
+                <div><dt>Trade license</dt><dd>{selectedSupplier.craft_tradelicensenumber || '-'}</dd></div>
+              </dl>
+              <section className="related-record-details">
+                <p className="eyebrow">Related purchase orders</p>
+                {relatedPurchaseOrders.length > 0 ? <div className="related-record-list">{relatedPurchaseOrders.map((purchaseOrder) => (
+                  <button className="related-project related-project-link" type="button" key={purchaseOrder.craft_purchaseorderid} onClick={() => onOpenPurchaseOrder?.(purchaseOrder)}>
+                    <span>{purchaseOrder.craft_purchaseorderid1 || purchaseOrder.craft_purchaseorderid}</span>
+                    <small>{purchaseOrder.craft_purchaseordertypename || 'Purchase order'} · {purchaseOrder.craft_statusname || 'Status unavailable'} · {money(purchaseOrder.craft_amountaed)}</small>
+                  </button>
+                ))}</div> : <p className="empty-widget">No purchase orders connected to this supplier.</p>}
+              </section>
+            </div>
+          ) : <div className="empty-details"><strong>Select a supplier</strong><span>Supplier and related purchase order details will appear here.</span></div>}
         </aside>
       </div>
     </div>
@@ -1363,7 +1714,7 @@ export function ProjectDocumentsPage({ clients, projects, projectDocuments, sele
   )
 }
 
-export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], projectDocuments = [], employees = [], contracts = [], workPackages = [], inspections = [], paymentApplications = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, onOpenProjectDocument, onOpenEmployee, onOpenContract, onOpenWorkPackage, onOpenInspection, onOpenPaymentApplication, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; projectDocuments?: Craft_projectdocuments[]; employees?: Craft_employees[]; contracts?: Craft_contract1s[]; workPackages?: Craft_workpackages[]; inspections?: Craft_inspections[]; paymentApplications?: Craft_paymentapplications[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void; onOpenProjectDocument?: (projectDocument: Craft_projectdocuments) => void; onOpenEmployee?: (employee: Craft_employees) => void; onOpenContract?: (contract: Craft_contract1s) => void; onOpenWorkPackage?: (workPackage: Craft_workpackages) => void; onOpenInspection?: (inspection: Craft_inspections) => void; onOpenPaymentApplication?: (payment: Craft_paymentapplications) => void }) {
+export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], projectDocuments = [], employees = [], contracts = [], workPackages = [], inspections = [], paymentApplications = [], purchaseOrders = [], dailySiteReports = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, onOpenProjectDocument, onOpenEmployee, onOpenContract, onOpenWorkPackage, onOpenInspection, onOpenPaymentApplication, onOpenPurchaseOrder, onOpenDailySiteReport, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; projectDocuments?: Craft_projectdocuments[]; employees?: Craft_employees[]; contracts?: Craft_contract1s[]; workPackages?: Craft_workpackages[]; inspections?: Craft_inspections[]; paymentApplications?: Craft_paymentapplications[]; purchaseOrders?: Craft_purchaseorders[]; dailySiteReports?: Craft_dailysitereports[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void; onOpenProjectDocument?: (projectDocument: Craft_projectdocuments) => void; onOpenEmployee?: (employee: Craft_employees) => void; onOpenContract?: (contract: Craft_contract1s) => void; onOpenWorkPackage?: (workPackage: Craft_workpackages) => void; onOpenInspection?: (inspection: Craft_inspections) => void; onOpenPaymentApplication?: (payment: Craft_paymentapplications) => void; onOpenPurchaseOrder?: (purchaseOrder: Craft_purchaseorders) => void; onOpenDailySiteReport?: (report: Craft_dailysitereports) => void }) {
   const [search, setSearch] = useState('')
   const [clientFilter, setClientFilter] = useState(selectedClientId)
   const [selectedProject, setSelectedProject] = useState<Craft_projects | null>(null)
@@ -1432,6 +1783,8 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
   const relatedWorkPackages = selectedProject ? workPackages.filter((workPackage) => workPackageBelongsToProject(workPackage, selectedProject)) : []
   const relatedInspections = selectedProject ? inspections.filter((inspection) => inspectionBelongsToProject(inspection, selectedProject)) : []
   const relatedPaymentApplications = selectedProject ? paymentApplications.filter((payment) => paymentApplicationBelongsToProject(payment, selectedProject)) : []
+  const relatedPurchaseOrders = selectedProject ? purchaseOrders.filter((purchaseOrder) => purchaseOrderBelongsToProject(purchaseOrder, selectedProject)) : []
+  const relatedDailySiteReports = selectedProject ? dailySiteReports.filter((report) => dailySiteReportBelongsToProject(report, selectedProject)) : []
 
   return (
     <div className="entity-view">
@@ -1641,6 +1994,34 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
                 ) : (
                   <p className="empty-widget">No payment applications connected to this project.</p>
                 )}
+                </div>
+              </div>
+
+              <div className="related-projects">
+                <div className="related-heading">
+                  <h3>Purchase Orders</h3>
+                </div>
+                <div className="related-record-list">
+                {relatedPurchaseOrders.length > 0 ? relatedPurchaseOrders.map((purchaseOrder) => (
+                  <button className="related-project" type="button" key={purchaseOrder.craft_purchaseorderid} onClick={() => onOpenPurchaseOrder?.(purchaseOrder)}>
+                    <span>{purchaseOrder.craft_purchaseorderid1 || purchaseOrder.craft_purchaseorderid}</span>
+                    <small>{purchaseOrder.craft_purchaseordertypename || 'Purchase order'} · {purchaseOrder.craft_statusname || 'Status unavailable'} · {money(purchaseOrder.craft_amountaed)}</small>
+                  </button>
+                )) : <p className="empty-widget">No purchase orders connected to this project.</p>}
+                </div>
+              </div>
+
+              <div className="related-projects">
+                <div className="related-heading">
+                  <h3>Daily Site Reports</h3>
+                </div>
+                <div className="related-record-list">
+                {relatedDailySiteReports.length > 0 ? relatedDailySiteReports.map((report) => (
+                  <button className="related-project" type="button" key={report.craft_dailysitereportid} onClick={() => onOpenDailySiteReport?.(report)}>
+                    <span>{report.craft_reportid || report.craft_dailysitereportid}</span>
+                    <small>{date(report.craft_reportdate)} · {report.craft_weatherconditionname || 'Weather unavailable'} · {report.craft_workdescription || 'No work description'}</small>
+                  </button>
+                )) : <p className="empty-widget">No daily site reports connected to this project.</p>}
                 </div>
               </div>
 

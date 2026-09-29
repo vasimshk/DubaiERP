@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { OperationsCommandCenter } from './OperationsCommandCenter'
-import { ClientPage, ContractorsPage, ContractsPage, EmployeesPage, InspectionsPage, PaymentApplicationsPage, PermitApprovalsPage, ProjectDocumentsPage, ProjectPhasesPage, ProjectsPage, SafetyIncidentsPage, VariationOrdersPage, WorkPackagesPage } from './ClientProjectViews'
+import { ClientPage, ContractorsPage, ContractsPage, DailySiteReportsPage, EmployeesPage, InspectionsPage, PaymentApplicationsPage, PurchaseOrdersPage, SuppliersPage, PermitApprovalsPage, ProjectDocumentsPage, ProjectPhasesPage, ProjectsPage, SafetyIncidentsPage, VariationOrdersPage, WorkPackagesPage } from './ClientProjectViews'
 import { ExecutiveSummary } from './ExecutiveSummary'
 import type { Craft_clients } from './generated/models/Craft_clientsModel'
 import type { Craft_contract1s } from './generated/models/Craft_contract1sModel'
@@ -332,112 +332,6 @@ function EquipmentPanel({ records, loading, onRefresh }: { records: Craft_equipm
   )
 }
 
-function RelationshipTablePage({
-  title,
-  subtitle,
-  records,
-  titleKeys,
-  projectKeys,
-  metaKeys,
-  projectMap,
-  clientMap,
-  selectedRecordId,
-}: {
-  title: string
-  subtitle: string
-  records: Record<string, any>[]
-  titleKeys: string[]
-  projectKeys: string[]
-  metaKeys: string[]
-  projectMap: Map<string, Craft_projects>
-  clientMap: Map<string, Craft_clients>
-  selectedRecordId?: string | null
-}) {
-  const [search, setSearch] = useState('')
-
-  const filteredRecords = useMemo(() => {
-    const query = search.toLowerCase()
-    return records.filter((record) => {
-      const searchable = [
-        ...titleKeys.map((key) => record[key]),
-        ...metaKeys.map((key) => record[key]),
-        ...projectKeys.map((key) => record[key]),
-      ].filter((value) => value != null && value !== '')
-
-      return searchable.some((value) => String(value).toLowerCase().includes(query))
-    })
-  }, [records, search, titleKeys, metaKeys, projectKeys])
-
-  const getDisplayValue = (record: Record<string, any>, keys: string[]) => {
-    for (const key of keys) {
-      const value = record[key]
-      if (value != null && value !== '') return String(value)
-    }
-    return '-'
-  }
-
-  const selectedId = selectedRecordId ?? null
-
-  return (
-    <div className="entity-view">
-      <header className="entity-header">
-        <div>
-          <p className="eyebrow">Dubai ERP / Registry</p>
-          <h1>{title}</h1>
-          <p className="subtitle">{subtitle}</p>
-        </div>
-      </header>
-
-      <section className="entity-toolbar">
-        <label className="search-field">
-          <span>Search records</span>
-          <input type="search" placeholder="Search by name, project, notes..." value={search} onChange={(event) => setSearch(event.target.value)} />
-        </label>
-        <span className="result-count">Showing {filteredRecords.length} records</span>
-      </section>
-
-      <section className="table-panel entity-project-table">
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>{title}</th>
-                <th>Related project</th>
-                <th>Client</th>
-                <th>Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRecords.map((record: Record<string, any>, index: number) => {
-                const projectId = projectKeys.map((key) => record[key]).find((value) => value != null && value !== '') ?? record._craft_project_value ?? record.craft_projectid
-                const project = projectId ? projectMap.get(String(projectId)) : undefined
-                const client = project && project.craft_clientid ? clientMap.get(project.craft_clientid) : undefined
-                const displayTitle = getDisplayValue(record, titleKeys)
-                const projectName = project?.craft_projectname || project?.craft_projectid1 || project?.craft_projectid || 'Unassigned project'
-                const clientName = client ? (client.craft_clientname || client.craft_clientid1 || client.craft_clientid) : 'Unassigned client'
-                const rowId = record.craft_contract1id ?? record.craft_contractid1 ?? record.craft_projectdocumentid ?? record.craft_employeeid ?? record.craft_variationorderid ?? record.craft_safetyincidentid ?? record.craft_projectphaseid ?? record.craft_permitapprovalid ?? `${title}-${displayTitle}-${index}`
-
-                return (
-                  <tr key={rowId} className={selectedId && rowId === selectedId ? 'selected-row' : ''}>
-                    <td className="equipment-name">
-                      <span>{displayTitle}</span>
-                      <small>{getDisplayValue(record, ['craft_recordversion', 'craft_status', 'craft_projecttype', 'craft_projectidentifier'])}</small>
-                    </td>
-                    <td>{projectName}</td>
-                    <td>{clientName}</td>
-                    <td>{getDisplayValue(record, metaKeys)}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-        {filteredRecords.length === 0 && <p className="table-message">No records match the selected filters.</p>}
-      </section>
-    </div>
-  )
-}
-
 function App() {
   const [view, setView] = useState<ViewMode>('dashboard')
   const [clients, setClients] = useState<Craft_clients[]>([])
@@ -474,6 +368,9 @@ function App() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
   const [selectedInspectionId, setSelectedInspectionId] = useState<string | null>(null)
   const [selectedPaymentApplicationId, setSelectedPaymentApplicationId] = useState<string | null>(null)
+  const [selectedPurchaseOrderId, setSelectedPurchaseOrderId] = useState<string | null>(null)
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null)
+  const [selectedDailySiteReportId, setSelectedDailySiteReportId] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -680,6 +577,21 @@ function App() {
     setView('payment-applications')
   }
 
+  const openPurchaseOrder = (purchaseOrder: Craft_purchaseorders) => {
+    setSelectedPurchaseOrderId(purchaseOrder.craft_purchaseorderid)
+    setView('purchase-orders')
+  }
+
+  const openSupplier = (supplier: Craft_suppliers) => {
+    setSelectedSupplierId(supplier.craft_supplierid)
+    setView('suppliers')
+  }
+
+  const openDailySiteReport = (report: Craft_dailysitereports) => {
+    setSelectedDailySiteReportId(report.craft_dailysitereportid)
+    setView('daily-site-reports')
+  }
+
   const openProject = (project: Craft_projects) => {
     setProjectClientFilter('All clients')
     setSelectedProjectId(project.craft_projectid)
@@ -734,7 +646,7 @@ function App() {
       ) : view === 'clients' ? (
         <ClientPage clients={clients} projects={projects} onOpenProjects={openProjects} />
       ) : view === 'projects' ? (
-        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} safetyIncidents={incidents} variationOrders={variationOrders} projectDocuments={projectDocuments} employees={employees} contracts={contracts} workPackages={workPackages} inspections={inspections} paymentApplications={payments} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} onOpenSafetyIncident={openSafetyIncident} onOpenVariationOrder={openVariationOrder} onOpenProjectDocument={openProjectDocument} onOpenEmployee={openEmployee} onOpenContract={openContract} onOpenWorkPackage={openWorkPackage} onOpenInspection={openInspection} onOpenPaymentApplication={openPaymentApplication} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
+        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} safetyIncidents={incidents} variationOrders={variationOrders} projectDocuments={projectDocuments} employees={employees} contracts={contracts} workPackages={workPackages} inspections={inspections} paymentApplications={payments} purchaseOrders={purchaseOrders} dailySiteReports={dailySiteReports} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} onOpenSafetyIncident={openSafetyIncident} onOpenVariationOrder={openVariationOrder} onOpenProjectDocument={openProjectDocument} onOpenEmployee={openEmployee} onOpenContract={openContract} onOpenWorkPackage={openWorkPackage} onOpenInspection={openInspection} onOpenPaymentApplication={openPaymentApplication} onOpenPurchaseOrder={openPurchaseOrder} onOpenDailySiteReport={openDailySiteReport} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
       ) : view === 'project-phases' ? (
         <ProjectPhasesPage clients={clients} projects={projects} projectPhases={projectPhases} selectedPhaseId={selectedPhaseId} onOpenProject={openProject} />
       ) : view === 'contracts' ? (
@@ -742,9 +654,9 @@ function App() {
       ) : view === 'contractors' ? (
         <ContractorsPage clients={clients} projects={projects} contractors={contractors} contracts={contracts} selectedContractorId={selectedContractorId} onOpenContract={openContractorContract} onOpenProject={openProject} />
       ) : view === 'daily-site-reports' ? (
-        <RelationshipTablePage title="Daily Site Reports" subtitle="Follow project updates, manpower, and site conditions by report date." records={dailySiteReports as Record<string, any>[]} titleKeys={['craft_reportid', 'craft_dailysitereportid']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_reportdate', 'craft_workdescription', 'craft_weatherconditionname']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+        <DailySiteReportsPage projects={projects} employees={employees} reports={dailySiteReports} selectedReportId={selectedDailySiteReportId} onOpenProject={openProject} onOpenEmployee={openEmployee} />
       ) : view === 'employees' ? (
-        <EmployeesPage projects={projects} employees={employees} inspections={inspections} selectedEmployeeId={selectedEmployeeId} onOpenProject={openProject} onOpenInspection={openInspection} />
+        <EmployeesPage projects={projects} employees={employees} inspections={inspections} dailySiteReports={dailySiteReports} selectedEmployeeId={selectedEmployeeId} onOpenProject={openProject} onOpenInspection={openInspection} onOpenDailySiteReport={openDailySiteReport} />
       ) : view === 'inspections' ? (
         <InspectionsPage projects={projects} employees={employees} inspections={inspections} selectedInspectionId={selectedInspectionId} onOpenProject={openProject} onOpenEmployee={openEmployee} />
       ) : view === 'payment-applications' ? (
@@ -754,13 +666,13 @@ function App() {
       ) : view === 'project-documents' ? (
         <ProjectDocumentsPage clients={clients} projects={projects} projectDocuments={projectDocuments} selectedProjectDocumentId={selectedProjectDocumentId} onOpenProject={openProject} />
       ) : view === 'purchase-orders' ? (
-        <RelationshipTablePage title="Purchase Orders" subtitle="Review vendor commitments, project coverage, and order status." records={purchaseOrders as Record<string, any>[]} titleKeys={['craft_purchaseorderid1', 'craft_purchaseorderid']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_purchaseordertypename', 'craft_statusname', 'craft_amountaed']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+        <PurchaseOrdersPage projects={projects} suppliers={suppliers} purchaseOrders={purchaseOrders} selectedPurchaseOrderId={selectedPurchaseOrderId} onOpenProject={openProject} onOpenSupplier={openSupplier} />
       ) : view === 'safety-incidents' ? (
         <SafetyIncidentsPage clients={clients} projects={projects} incidents={incidents} selectedIncidentId={selectedIncidentId} onOpenProject={openProject} />
       ) : view === 'variation-orders' ? (
         <VariationOrdersPage clients={clients} projects={projects} variationOrders={variationOrders} selectedVariationOrderId={selectedVariationOrderId} onOpenProject={openProject} />
       ) : view === 'suppliers' ? (
-        <RelationshipTablePage title="Suppliers" subtitle="Maintain supplier records and their project-linked supply footprint." records={suppliers as Record<string, any>[]} titleKeys={['craft_companyname', 'craft_supplierid1', 'craft_supplierid']} projectKeys={['craft_projectid']} metaKeys={['craft_category', 'craft_statusname', 'craft_paymentterms']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+        <SuppliersPage suppliers={suppliers} purchaseOrders={purchaseOrders} selectedSupplierId={selectedSupplierId} onOpenPurchaseOrder={openPurchaseOrder} />
       ) : view === 'work-packages' ? (
         <WorkPackagesPage projects={projects} projectPhases={projectPhases} contractors={contractors} workPackages={workPackages} selectedWorkPackageId={selectedWorkPackageId} onOpenProject={openProject} onOpenPhase={openProjectPhase} onOpenContractor={openContractor} />
       ) : (
