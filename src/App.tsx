@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { OperationsCommandCenter } from './OperationsCommandCenter'
-import { ClientPage, EmployeesPage, PermitApprovalsPage, ProjectDocumentsPage, ProjectPhasesPage, ProjectsPage, SafetyIncidentsPage, VariationOrdersPage } from './ClientProjectViews'
+import { ClientPage, ContractsPage, EmployeesPage, PermitApprovalsPage, ProjectDocumentsPage, ProjectPhasesPage, ProjectsPage, SafetyIncidentsPage, VariationOrdersPage } from './ClientProjectViews'
 import { ExecutiveSummary } from './ExecutiveSummary'
 import type { Craft_clients } from './generated/models/Craft_clientsModel'
 import type { Craft_contract1s } from './generated/models/Craft_contract1sModel'
@@ -341,6 +341,7 @@ function RelationshipTablePage({
   metaKeys,
   projectMap,
   clientMap,
+  selectedRecordId,
 }: {
   title: string
   subtitle: string
@@ -350,6 +351,7 @@ function RelationshipTablePage({
   metaKeys: string[]
   projectMap: Map<string, Craft_projects>
   clientMap: Map<string, Craft_clients>
+  selectedRecordId?: string | null
 }) {
   const [search, setSearch] = useState('')
 
@@ -373,6 +375,8 @@ function RelationshipTablePage({
     }
     return '-'
   }
+
+  const selectedId = selectedRecordId ?? null
 
   return (
     <div className="entity-view">
@@ -411,9 +415,10 @@ function RelationshipTablePage({
                 const displayTitle = getDisplayValue(record, titleKeys)
                 const projectName = project?.craft_projectname || project?.craft_projectid1 || project?.craft_projectid || 'Unassigned project'
                 const clientName = client ? (client.craft_clientname || client.craft_clientid1 || client.craft_clientid) : 'Unassigned client'
+                const rowId = record.craft_contract1id ?? record.craft_contractid1 ?? record.craft_projectdocumentid ?? record.craft_employeeid ?? record.craft_variationorderid ?? record.craft_safetyincidentid ?? record.craft_projectphaseid ?? record.craft_permitapprovalid ?? `${title}-${displayTitle}-${index}`
 
                 return (
-                  <tr key={`${title}-${displayTitle}-${index}`}>
+                  <tr key={rowId} className={selectedId && rowId === selectedId ? 'selected-row' : ''}>
                     <td className="equipment-name">
                       <span>{displayTitle}</span>
                       <small>{getDisplayValue(record, ['craft_recordversion', 'craft_status', 'craft_projecttype', 'craft_projectidentifier'])}</small>
@@ -463,6 +468,7 @@ function App() {
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
   const [selectedVariationOrderId, setSelectedVariationOrderId] = useState<string | null>(null)
   const [selectedProjectDocumentId, setSelectedProjectDocumentId] = useState<string | null>(null)
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -635,6 +641,11 @@ function App() {
     setView('project-documents')
   }
 
+  const openContract = (contract: Craft_contract1s) => {
+    setSelectedContractId(contract.craft_contract1id)
+    setView('contracts')
+  }
+
   const openEmployee = (employee: Craft_employees) => {
     setSelectedEmployeeId(employee.craft_employeeid)
     setView('employees')
@@ -694,11 +705,11 @@ function App() {
       ) : view === 'clients' ? (
         <ClientPage clients={clients} projects={projects} onOpenProjects={openProjects} />
       ) : view === 'projects' ? (
-        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} safetyIncidents={incidents} variationOrders={variationOrders} projectDocuments={projectDocuments} employees={employees} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} onOpenSafetyIncident={openSafetyIncident} onOpenVariationOrder={openVariationOrder} onOpenProjectDocument={openProjectDocument} onOpenEmployee={openEmployee} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
+        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} safetyIncidents={incidents} variationOrders={variationOrders} projectDocuments={projectDocuments} employees={employees} contracts={contracts} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} onOpenSafetyIncident={openSafetyIncident} onOpenVariationOrder={openVariationOrder} onOpenProjectDocument={openProjectDocument} onOpenEmployee={openEmployee} onOpenContract={openContract} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
       ) : view === 'project-phases' ? (
         <ProjectPhasesPage clients={clients} projects={projects} projectPhases={projectPhases} selectedPhaseId={selectedPhaseId} onOpenProject={openProject} />
       ) : view === 'contracts' ? (
-        <RelationshipTablePage title="Contracts" subtitle="Track contract value, status, and project ownership across the portfolio." records={contracts as Record<string, any>[]} titleKeys={['craft_contractid1', 'craft_contract1id']} projectKeys={['craft_projectid', '_craft_project_value']} metaKeys={['craft_contractstatusname', 'craft_contracttypename', 'craft_contractvalueaed']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+        <ContractsPage clients={clients} projects={projects} contracts={contracts} selectedContractId={selectedContractId} onOpenProject={openProject} />
       ) : view === 'contractors' ? (
         <RelationshipTablePage title="Contractors" subtitle="Track contractor profile, rating, and project-linked exposure." records={contractors as Record<string, any>[]} titleKeys={['craft_companyname', 'craft_contractorid1', 'craft_contractorid']} projectKeys={['craft_projectid']} metaKeys={['craft_ratingname', 'craft_specialty', 'craft_statusname']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
       ) : view === 'daily-site-reports' ? (

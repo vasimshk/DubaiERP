@@ -4,6 +4,7 @@ import {
 } from './generated/models/Craft_clientsModel'
 import { Craft_projectscraft_healthstatus } from './generated/models/Craft_projectsModel'
 import type { Craft_clients } from './generated/models/Craft_clientsModel'
+import type { Craft_contract1s } from './generated/models/Craft_contract1sModel'
 import type { Craft_employees } from './generated/models/Craft_employeesModel'
 import type { Craft_permitapprovals } from './generated/models/Craft_permitapprovalsModel'
 import type { Craft_projectdocuments } from './generated/models/Craft_projectdocumentsModel'
@@ -50,6 +51,11 @@ const projectDocumentBelongsToProject = (projectDocument: Craft_projectdocuments
   const documentProjectIds = [projectDocument.craft_projectid, projectDocument._craft_project_value].filter(Boolean)
   const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
   return documentProjectIds.some((documentProjectId) => projectIds.includes(documentProjectId))
+}
+const contractBelongsToProject = (contract: Craft_contract1s, project: Craft_projects) => {
+  const contractProjectIds = [contract.craft_projectid, contract._craft_project_value].filter(Boolean)
+  const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
+  return contractProjectIds.some((contractProjectId) => projectIds.includes(contractProjectId))
 }
 const employeeBelongsToProject = (project: Craft_projects, employee: Craft_employees) => {
   const projectEmployeeIds = [project._craft_employeerecord_value, project.craft_projectmanagerid].filter(Boolean)
@@ -624,6 +630,111 @@ export function EmployeesPage({ projects, employees, selectedEmployeeId, onOpenP
   )
 }
 
+export function ContractsPage({ clients, projects, contracts, selectedContractId, onOpenProject }: { clients: Craft_clients[]; projects: Craft_projects[]; contracts: Craft_contract1s[]; selectedContractId?: string | null; onOpenProject?: (project: Craft_projects) => void }) {
+  const [search, setSearch] = useState('')
+  const filteredContracts = useMemo(() => {
+    const query = search.toLowerCase()
+    return contracts.filter((contract) => {
+      const project = projects.find((candidate) => contractBelongsToProject(contract, candidate))
+      return [contract.craft_contractid1, contract.craft_contract1id, contract.craft_contracttypename, contract.craft_contractstatusname, contract.craft_contractorid, project?.craft_projectname, project?.craft_projectid1]
+        .some((value) => value?.toLowerCase().includes(query))
+    })
+  }, [contracts, projects, search])
+  const [selectedContract, setSelectedContract] = useState<Craft_contract1s | null>(null)
+
+  useEffect(() => {
+    if (filteredContracts.length === 0) {
+      setSelectedContract(null)
+      return
+    }
+
+    const matchingContract = selectedContractId
+      ? filteredContracts.find((contract) => contract.craft_contract1id === selectedContractId)
+      : undefined
+    setSelectedContract((current) => matchingContract ?? (current && filteredContracts.some((contract) => contract.craft_contract1id === current.craft_contract1id) ? current : filteredContracts[0]))
+  }, [filteredContracts, selectedContractId])
+
+  const selectedContractProject = selectedContract ? projects.find((project) => contractBelongsToProject(selectedContract, project)) : undefined
+
+  return (
+    <div className="entity-view">
+      <header className="entity-header">
+        <div><p className="eyebrow">Dubai ERP / Commercial</p><h1>Contracts</h1><p className="subtitle">Review contract status, value, dates, and linked project ownership.</p></div>
+      </header>
+      <section className="entity-toolbar">
+        <label className="search-field"><span>Search contracts</span><input type="search" placeholder="Search contract, project, status..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <span className="result-count">Showing {filteredContracts.length} records</span>
+      </section>
+      <div className="entity-content-grid">
+        <section className="table-panel entity-project-table">
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Contract</th><th>Type</th><th>Project</th><th>Status</th><th>Value</th><th>Commencement</th></tr></thead>
+              <tbody>
+                {filteredContracts.map((contract) => {
+                  const project = projects.find((candidate) => contractBelongsToProject(contract, candidate))
+                  return (
+                    <tr className={selectedContract?.craft_contract1id === contract.craft_contract1id ? 'selected-row' : ''} key={contract.craft_contract1id} onClick={() => setSelectedContract(contract)}>
+                      <td className="equipment-name">{contract.craft_contractid1 || contract.craft_contract1id}<small>{contract.craft_contract1id}</small></td>
+                      <td>{contract.craft_contracttypename || 'Contract'}</td>
+                      <td>{project?.craft_projectname || project?.craft_projectid1 || project?.craft_projectid || '-'}</td>
+                      <td>{contract.craft_contractstatusname || 'Unknown'}</td>
+                      <td>{money(contract.craft_contractvalueaed)}</td>
+                      <td>{date(contract.craft_commencementdate)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {filteredContracts.length === 0 && <p className="table-message">No contracts match your search.</p>}
+        </section>
+        <aside className="details-panel entity-details-panel">
+          {selectedContract ? (
+            <div className="details-content">
+              <div className="panel-heading">
+                <div><p className="eyebrow">Contract details</p><h2>{selectedContract.craft_contractid1 || selectedContract.craft_contract1id}</h2></div>
+                <span className={`status status-${(selectedContract.craft_contractstatusname || 'unknown').toLowerCase().replaceAll(' ', '-')}`}>{selectedContract.craft_contractstatusname || 'Unknown'}</span>
+              </div>
+              <dl className="details-list">
+                <div><dt>Contract type</dt><dd>{selectedContract.craft_contracttypename || '-'}</dd></div>
+                <div><dt>Contract status</dt><dd>{selectedContract.craft_contractstatusname || '-'}</dd></div>
+                <div><dt>Project</dt><dd>{selectedContractProject ? selectedContractProject.craft_projectname || selectedContractProject.craft_projectid1 || selectedContractProject.craft_projectid : '-'}</dd></div>
+                <div><dt>Contract value</dt><dd>{money(selectedContract.craft_contractvalueaed)}</dd></div>
+                <div><dt>Remaining value</dt><dd>{money(selectedContract.craft_remainingcontractvalue)}</dd></div>
+                <div><dt>Commencement date</dt><dd>{date(selectedContract.craft_commencementdate)}</dd></div>
+                <div><dt>Completion date</dt><dd>{date(selectedContract.craft_completiondate)}</dd></div>
+                <div><dt>Signed date</dt><dd>{date(selectedContract.craft_signeddate)}</dd></div>
+                <div><dt>Retention %</dt><dd>{selectedContract.craft_retentionpercentage == null ? '-' : `${selectedContract.craft_retentionpercentage}%`}</dd></div>
+                <div><dt>Performance bond %</dt><dd>{selectedContract.craft_performancebondpercentage == null ? '-' : `${selectedContract.craft_performancebondpercentage}%`}</dd></div>
+                <div><dt>Liquidated damages / day</dt><dd>{money(selectedContract.craft_liquidateddamagesperdayaed)}</dd></div>
+                <div><dt>Internal notes</dt><dd>{selectedContract.craft_internalnotes || '-'}</dd></div>
+              </dl>
+              <section className="related-record-details">
+                <p className="eyebrow">Related project</p>
+                {selectedContractProject ? (
+                  <>
+                    <button className="related-project related-project-link" type="button" onClick={() => onOpenProject?.(selectedContractProject)}>
+                      <span>{selectedContractProject.craft_projectname || selectedContractProject.craft_projectid1 || selectedContractProject.craft_projectid}</span>
+                      <small>Open project record</small>
+                    </button>
+                    <dl className="details-list">
+                      <div><dt>Client</dt><dd>{clientName(clients.find((client) => projectClientId(selectedContractProject) === client.craft_clientid))}</dd></div>
+                      <div><dt>Location</dt><dd>{selectedContractProject.craft_location || '-'}</dd></div>
+                      <div><dt>Health</dt><dd>{healthStatus(selectedContractProject)}</dd></div>
+                      <div><dt>Completion</dt><dd>{selectedContractProject.craft_completionpercentage ?? 0}%</dd></div>
+                    </dl>
+                  </>
+                ) : <p className="empty-widget">No related project record found.</p>}
+              </section>
+            </div>
+          ) : <div className="empty-details"><strong>Select a contract</strong><span>Contract and project details will appear here.</span></div>}
+        </aside>
+      </div>
+    </div>
+  )
+}
+
 export function ProjectDocumentsPage({ clients, projects, projectDocuments, selectedProjectDocumentId, onOpenProject }: { clients: Craft_clients[]; projects: Craft_projects[]; projectDocuments: Craft_projectdocuments[]; selectedProjectDocumentId?: string | null; onOpenProject?: (project: Craft_projects) => void }) {
   const [search, setSearch] = useState('')
   const filteredProjectDocuments = useMemo(() => {
@@ -724,7 +835,7 @@ export function ProjectDocumentsPage({ clients, projects, projectDocuments, sele
   )
 }
 
-export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], projectDocuments = [], employees = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, onOpenProjectDocument, onOpenEmployee, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; projectDocuments?: Craft_projectdocuments[]; employees?: Craft_employees[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void; onOpenProjectDocument?: (projectDocument: Craft_projectdocuments) => void; onOpenEmployee?: (employee: Craft_employees) => void }) {
+export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], projectDocuments = [], employees = [], contracts = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, onOpenProjectDocument, onOpenEmployee, onOpenContract, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; projectDocuments?: Craft_projectdocuments[]; employees?: Craft_employees[]; contracts?: Craft_contract1s[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void; onOpenProjectDocument?: (projectDocument: Craft_projectdocuments) => void; onOpenEmployee?: (employee: Craft_employees) => void; onOpenContract?: (contract: Craft_contract1s) => void }) {
   const [search, setSearch] = useState('')
   const [clientFilter, setClientFilter] = useState(selectedClientId)
   const [selectedProject, setSelectedProject] = useState<Craft_projects | null>(null)
@@ -788,6 +899,7 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
   const relatedSafetyIncidents = selectedProject ? safetyIncidents.filter((incident) => incidentBelongsToProject(incident, selectedProject)) : []
   const relatedVariationOrders = selectedProject ? variationOrders.filter((variationOrder) => variationOrderBelongsToProject(variationOrder, selectedProject)) : []
   const relatedProjectDocuments = selectedProject ? projectDocuments.filter((projectDocument) => projectDocumentBelongsToProject(projectDocument, selectedProject)) : []
+  const relatedContracts = selectedProject ? contracts.filter((contract) => contractBelongsToProject(contract, selectedProject)) : []
   const relatedEmployees = selectedProject ? employees.filter((employee) => employeeBelongsToProject(selectedProject, employee)) : []
 
   return (
@@ -831,6 +943,24 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
                   ))
                 ) : (
                   <p className="empty-widget">No employees connected to this project.</p>
+                )}
+                </div>
+              </div>
+
+              <div className="related-projects">
+                <div className="related-heading">
+                  <h3>Contracts</h3>
+                </div>
+                <div className="related-record-list">
+                {relatedContracts.length > 0 ? (
+                  relatedContracts.map((contract) => (
+                    <button className="related-project" type="button" key={contract.craft_contract1id} onClick={() => onOpenContract?.(contract)}>
+                      <span>{contract.craft_contractid1 || contract.craft_contract1id}</span>
+                      <small>{contract.craft_contracttypename || 'Contract'} · {contract.craft_contractstatusname || 'Status unavailable'} · {money(contract.craft_contractvalueaed)}</small>
+                    </button>
+                  ))
+                ) : (
+                  <p className="empty-widget">No contracts connected to this project.</p>
                 )}
                 </div>
               </div>
