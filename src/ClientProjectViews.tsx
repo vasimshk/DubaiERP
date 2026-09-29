@@ -13,6 +13,7 @@ import type { Craft_projectphases } from './generated/models/Craft_projectphases
 import type { Craft_projects } from './generated/models/Craft_projectsModel'
 import type { Craft_safetyincidents } from './generated/models/Craft_safetyincidentsModel'
 import type { Craft_variationorders } from './generated/models/Craft_variationordersModel'
+import type { Craft_workpackages } from './generated/models/Craft_workpackagesModel'
 
 type ClientProjectViewProps = {
   clients: Craft_clients[]
@@ -67,6 +68,21 @@ const employeeBelongsToProject = (project: Craft_projects, employee: Craft_emplo
   const projectEmployeeIds = [project._craft_employeerecord_value, project.craft_projectmanagerid].filter(Boolean)
   const employeeIds = [employee.craft_employeeid, employee.craft_employeeid1].filter(Boolean)
   return projectEmployeeIds.some((projectEmployeeId) => employeeIds.includes(projectEmployeeId))
+}
+const workPackageBelongsToProject = (workPackage: Craft_workpackages, project: Craft_projects) => {
+  const workPackageProjectIds = [workPackage.craft_projectid, workPackage._craft_project_value].filter(Boolean)
+  const projectIds = [project.craft_projectid, project.craft_projectid1].filter(Boolean)
+  return workPackageProjectIds.some((projectId) => projectIds.includes(projectId))
+}
+const workPackageBelongsToPhase = (workPackage: Craft_workpackages, phase: Craft_projectphases) => {
+  const workPackagePhaseIds = [workPackage.craft_phaseid, workPackage._craft_projectphase_value].filter(Boolean)
+  const phaseIds = [phase.craft_projectphaseid, phase.craft_phaseidentifier].filter(Boolean)
+  return workPackagePhaseIds.some((phaseId) => phaseIds.includes(phaseId))
+}
+const workPackageBelongsToContractor = (workPackage: Craft_workpackages, contractor: Craft_contractors) => {
+  const workPackageContractorIds = [workPackage.craft_contractorid, workPackage._craft_contractor_value].filter(Boolean)
+  const contractorIds = [contractor.craft_contractorid, contractor.craft_contractorid1].filter(Boolean)
+  return workPackageContractorIds.some((contractorId) => contractorIds.includes(contractorId))
 }
 
 export function ClientPage({ clients, projects, onOpenProjects }: ClientProjectViewProps) {
@@ -857,6 +873,128 @@ export function ContractsPage({ clients, projects, contractors, contracts, selec
   )
 }
 
+export function WorkPackagesPage({ projects, projectPhases, contractors, workPackages, selectedWorkPackageId, onOpenProject, onOpenPhase, onOpenContractor }: { projects: Craft_projects[]; projectPhases: Craft_projectphases[]; contractors: Craft_contractors[]; workPackages: Craft_workpackages[]; selectedWorkPackageId?: string | null; onOpenProject?: (project: Craft_projects) => void; onOpenPhase?: (phase: Craft_projectphases) => void; onOpenContractor?: (contractor: Craft_contractors) => void }) {
+  const [search, setSearch] = useState('')
+  const filteredWorkPackages = useMemo(() => {
+    const query = search.toLowerCase()
+    return workPackages.filter((workPackage) => {
+      const project = projects.find((candidate) => workPackageBelongsToProject(workPackage, candidate))
+      const phase = projectPhases.find((candidate) => workPackageBelongsToPhase(workPackage, candidate))
+      const contractor = contractors.find((candidate) => workPackageBelongsToContractor(workPackage, candidate))
+      return [
+        workPackage.craft_itemdescription,
+        workPackage.craft_packageid,
+        workPackage.craft_workpackageid,
+        project?.craft_projectname,
+        project?.craft_projectid1,
+        phase?.craft_phasename,
+        phase?.craft_phaseidentifier,
+        contractor?.craft_companyname,
+        contractor?.craft_contractorid1,
+      ].some((value) => value?.toLowerCase().includes(query))
+    })
+  }, [contractors, projectPhases, projects, search, workPackages])
+  const [selectedWorkPackage, setSelectedWorkPackage] = useState<Craft_workpackages | null>(null)
+
+  useEffect(() => {
+    const requestedWorkPackage = selectedWorkPackageId
+      ? filteredWorkPackages.find((item) => item.craft_workpackageid === selectedWorkPackageId)
+      : undefined
+    setSelectedWorkPackage((current) => requestedWorkPackage
+      ?? (current && filteredWorkPackages.some((item) => item.craft_workpackageid === current.craft_workpackageid) ? current : filteredWorkPackages[0] ?? null))
+  }, [filteredWorkPackages, selectedWorkPackageId])
+
+  const relatedProjects = selectedWorkPackage ? projects.filter((project) => workPackageBelongsToProject(selectedWorkPackage, project)) : []
+  const relatedPhases = selectedWorkPackage ? projectPhases.filter((phase) => workPackageBelongsToPhase(selectedWorkPackage, phase)) : []
+  const relatedContractors = selectedWorkPackage ? contractors.filter((contractor) => workPackageBelongsToContractor(selectedWorkPackage, contractor)) : []
+
+  return (
+    <div className="entity-view">
+      <header className="entity-header">
+        <div><p className="eyebrow">Dubai ERP / Delivery</p><h1>Work Packages</h1><p className="subtitle">Review package scope, quantities, values, and related project delivery records.</p></div>
+      </header>
+      <section className="entity-toolbar">
+        <label className="search-field"><span>Search work packages</span><input type="search" placeholder="Search package, project, phase, contractor..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <span className="result-count">Showing {filteredWorkPackages.length} records</span>
+      </section>
+      <div className="entity-content-grid">
+        <section className="table-panel entity-project-table">
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Work package</th><th>Project</th><th>Phase</th><th>Contractor</th><th>Quantity</th><th>Package value</th></tr></thead>
+              <tbody>
+                {filteredWorkPackages.map((workPackage) => {
+                  const project = projects.find((candidate) => workPackageBelongsToProject(workPackage, candidate))
+                  const phase = projectPhases.find((candidate) => workPackageBelongsToPhase(workPackage, candidate))
+                  const contractor = contractors.find((candidate) => workPackageBelongsToContractor(workPackage, candidate))
+                  return (
+                    <tr className={selectedWorkPackage?.craft_workpackageid === workPackage.craft_workpackageid ? 'selected-row' : ''} key={workPackage.craft_workpackageid} onClick={() => setSelectedWorkPackage(workPackage)}>
+                      <td className="equipment-name">{workPackage.craft_itemdescription || workPackage.craft_packageid || workPackage.craft_workpackageid}<small>{workPackage.craft_packageid || workPackage.craft_workpackageid}</small></td>
+                      <td>{project?.craft_projectname || project?.craft_projectid1 || project?.craft_projectid || '-'}</td>
+                      <td>{phase?.craft_phasename || phase?.craft_phaseidentifier || '-'}</td>
+                      <td>{contractor?.craft_companyname || contractor?.craft_contractorid1 || '-'}</td>
+                      <td>{workPackage.craft_quantity ?? '-'}</td>
+                      <td>{money(workPackage.craft_totalamountaed)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {filteredWorkPackages.length === 0 && <p className="table-message">No work packages match your search.</p>}
+        </section>
+        <aside className="details-panel entity-details-panel">
+          {selectedWorkPackage ? (
+            <div className="details-content">
+              <div className="panel-heading">
+                <div><p className="eyebrow">Work package details</p><h2>{selectedWorkPackage.craft_itemdescription || selectedWorkPackage.craft_packageid || selectedWorkPackage.craft_workpackageid}</h2></div>
+              </div>
+              <dl className="details-list">
+                <div><dt>Package ID</dt><dd>{selectedWorkPackage.craft_packageid || selectedWorkPackage.craft_workpackageid}</dd></div>
+                <div><dt>Description</dt><dd>{selectedWorkPackage.craft_itemdescription || '-'}</dd></div>
+                <div><dt>Unit of measure</dt><dd>{selectedWorkPackage.craft_unitofmeasure || '-'}</dd></div>
+                <div><dt>Quantity</dt><dd>{selectedWorkPackage.craft_quantity ?? '-'}</dd></div>
+                <div><dt>Unit rate</dt><dd>{money(selectedWorkPackage.craft_unitrateaed)}</dd></div>
+                <div><dt>Total amount</dt><dd>{money(selectedWorkPackage.craft_totalamountaed)}</dd></div>
+                <div><dt>Executed quantity</dt><dd>{selectedWorkPackage.craft_executedquantity ?? '-'}</dd></div>
+                <div><dt>Executed amount</dt><dd>{money(selectedWorkPackage.craft_executedamountaed)}</dd></div>
+                <div><dt>Internal notes</dt><dd>{selectedWorkPackage.craft_internalnotes || '-'}</dd></div>
+              </dl>
+              <section className="related-record-details">
+                <p className="eyebrow">Related projects</p>
+                {relatedProjects.length > 0 ? <div className="related-record-list">{relatedProjects.map((project) => (
+                  <button className="related-project related-project-link" type="button" key={project.craft_projectid} onClick={() => onOpenProject?.(project)}>
+                    <span>{project.craft_projectname || project.craft_projectid1 || project.craft_projectid}</span>
+                    <small>{project.craft_location || 'Location unavailable'} · {healthStatus(project)} · Open project record</small>
+                  </button>
+                ))}</div> : <p className="empty-widget">No related project record found.</p>}
+              </section>
+              <section className="related-record-details">
+                <p className="eyebrow">Related phases</p>
+                {relatedPhases.length > 0 ? <div className="related-record-list">{relatedPhases.map((phase) => (
+                  <button className="related-project related-project-link" type="button" key={phase.craft_projectphaseid} onClick={() => onOpenPhase?.(phase)}>
+                    <span>{phase.craft_phasename || phase.craft_phaseidentifier || phase.craft_projectphaseid}</span>
+                    <small>{phase.craft_phasestatusname || 'Status unavailable'} · {phase.craft_progresspercentage ?? 0}% complete · Open phase record</small>
+                  </button>
+                ))}</div> : <p className="empty-widget">No related phase record found.</p>}
+              </section>
+              <section className="related-record-details">
+                <p className="eyebrow">Related contractors</p>
+                {relatedContractors.length > 0 ? <div className="related-record-list">{relatedContractors.map((contractor) => (
+                  <button className="related-project related-project-link" type="button" key={contractor.craft_contractorid} onClick={() => onOpenContractor?.(contractor)}>
+                    <span>{contractor.craft_companyname || contractor.craft_contractorid1 || contractor.craft_contractorid}</span>
+                    <small>{contractor.craft_specialty || 'Specialty unavailable'} · {contractor.craft_contactperson || 'Contact unavailable'} · Open contractor record</small>
+                  </button>
+                ))}</div> : <p className="empty-widget">No related contractor record found.</p>}
+              </section>
+            </div>
+          ) : <div className="empty-details"><strong>Select a work package</strong><span>Package and related record details will appear here.</span></div>}
+        </aside>
+      </div>
+    </div>
+  )
+}
+
 export function ProjectDocumentsPage({ clients, projects, projectDocuments, selectedProjectDocumentId, onOpenProject }: { clients: Craft_clients[]; projects: Craft_projects[]; projectDocuments: Craft_projectdocuments[]; selectedProjectDocumentId?: string | null; onOpenProject?: (project: Craft_projects) => void }) {
   const [search, setSearch] = useState('')
   const filteredProjectDocuments = useMemo(() => {
@@ -957,7 +1095,7 @@ export function ProjectDocumentsPage({ clients, projects, projectDocuments, sele
   )
 }
 
-export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], projectDocuments = [], employees = [], contracts = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, onOpenProjectDocument, onOpenEmployee, onOpenContract, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; projectDocuments?: Craft_projectdocuments[]; employees?: Craft_employees[]; contracts?: Craft_contract1s[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void; onOpenProjectDocument?: (projectDocument: Craft_projectdocuments) => void; onOpenEmployee?: (employee: Craft_employees) => void; onOpenContract?: (contract: Craft_contract1s) => void }) {
+export function ProjectsPage({ clients, projects, projectPhases = [], permitApprovals = [], safetyIncidents = [], variationOrders = [], projectDocuments = [], employees = [], contracts = [], workPackages = [], onOpenProjects, onOpenProjectPhase, onOpenPermitApproval, onOpenSafetyIncident, onOpenVariationOrder, onOpenProjectDocument, onOpenEmployee, onOpenContract, onOpenWorkPackage, selectedClientId = 'All clients', selectedProjectId }: ClientProjectViewProps & { permitApprovals?: Craft_permitapprovals[]; safetyIncidents?: Craft_safetyincidents[]; variationOrders?: Craft_variationorders[]; projectDocuments?: Craft_projectdocuments[]; employees?: Craft_employees[]; contracts?: Craft_contract1s[]; workPackages?: Craft_workpackages[]; selectedClientId?: string; selectedProjectId?: string | null; onOpenProjectPhase?: (phase: Craft_projectphases) => void; onOpenPermitApproval?: (permit: Craft_permitapprovals) => void; onOpenSafetyIncident?: (incident: Craft_safetyincidents) => void; onOpenVariationOrder?: (variationOrder: Craft_variationorders) => void; onOpenProjectDocument?: (projectDocument: Craft_projectdocuments) => void; onOpenEmployee?: (employee: Craft_employees) => void; onOpenContract?: (contract: Craft_contract1s) => void; onOpenWorkPackage?: (workPackage: Craft_workpackages) => void }) {
   const [search, setSearch] = useState('')
   const [clientFilter, setClientFilter] = useState(selectedClientId)
   const [selectedProject, setSelectedProject] = useState<Craft_projects | null>(null)
@@ -1023,6 +1161,7 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
   const relatedProjectDocuments = selectedProject ? projectDocuments.filter((projectDocument) => projectDocumentBelongsToProject(projectDocument, selectedProject)) : []
   const relatedContracts = selectedProject ? contracts.filter((contract) => contractBelongsToProject(contract, selectedProject)) : []
   const relatedEmployees = selectedProject ? employees.filter((employee) => employeeBelongsToProject(selectedProject, employee)) : []
+  const relatedWorkPackages = selectedProject ? workPackages.filter((workPackage) => workPackageBelongsToProject(workPackage, selectedProject)) : []
 
   return (
     <div className="entity-view">
@@ -1177,6 +1316,24 @@ export function ProjectsPage({ clients, projects, projectPhases = [], permitAppr
                   ))
                 ) : (
                   <p className="empty-widget">No project documents connected to this project.</p>
+                )}
+                </div>
+              </div>
+
+              <div className="related-projects">
+                <div className="related-heading">
+                  <h3>Work Packages</h3>
+                </div>
+                <div className="related-record-list">
+                {relatedWorkPackages.length > 0 ? (
+                  relatedWorkPackages.map((workPackage) => (
+                    <button className="related-project" type="button" key={workPackage.craft_workpackageid} onClick={() => onOpenWorkPackage?.(workPackage)}>
+                      <span>{workPackage.craft_itemdescription || workPackage.craft_packageid || workPackage.craft_workpackageid}</span>
+                      <small>{workPackage.craft_unitofmeasure || 'Unit unavailable'} · Qty {workPackage.craft_quantity ?? '-'} · {money(workPackage.craft_totalamountaed)}</small>
+                    </button>
+                  ))
+                ) : (
+                  <p className="empty-widget">No work packages connected to this project.</p>
                 )}
                 </div>
               </div>

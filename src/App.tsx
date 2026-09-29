@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { OperationsCommandCenter } from './OperationsCommandCenter'
-import { ClientPage, ContractorsPage, ContractsPage, EmployeesPage, PermitApprovalsPage, ProjectDocumentsPage, ProjectPhasesPage, ProjectsPage, SafetyIncidentsPage, VariationOrdersPage } from './ClientProjectViews'
+import { ClientPage, ContractorsPage, ContractsPage, EmployeesPage, PermitApprovalsPage, ProjectDocumentsPage, ProjectPhasesPage, ProjectsPage, SafetyIncidentsPage, VariationOrdersPage, WorkPackagesPage } from './ClientProjectViews'
 import { ExecutiveSummary } from './ExecutiveSummary'
 import type { Craft_clients } from './generated/models/Craft_clientsModel'
 import type { Craft_contract1s } from './generated/models/Craft_contract1sModel'
@@ -470,6 +470,7 @@ function App() {
   const [selectedProjectDocumentId, setSelectedProjectDocumentId] = useState<string | null>(null)
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null)
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null)
+  const [selectedWorkPackageId, setSelectedWorkPackageId] = useState<string | null>(null)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -657,6 +658,11 @@ function App() {
     setView('contractors')
   }
 
+  const openWorkPackage = (workPackage: Craft_workpackages) => {
+    setSelectedWorkPackageId(workPackage.craft_workpackageid)
+    setView('work-packages')
+  }
+
   const openEmployee = (employee: Craft_employees) => {
     setSelectedEmployeeId(employee.craft_employeeid)
     setView('employees')
@@ -716,7 +722,7 @@ function App() {
       ) : view === 'clients' ? (
         <ClientPage clients={clients} projects={projects} onOpenProjects={openProjects} />
       ) : view === 'projects' ? (
-        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} safetyIncidents={incidents} variationOrders={variationOrders} projectDocuments={projectDocuments} employees={employees} contracts={contracts} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} onOpenSafetyIncident={openSafetyIncident} onOpenVariationOrder={openVariationOrder} onOpenProjectDocument={openProjectDocument} onOpenEmployee={openEmployee} onOpenContract={openContract} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
+        <ProjectsPage clients={clients} projects={projects} projectPhases={projectPhases} permitApprovals={permits} safetyIncidents={incidents} variationOrders={variationOrders} projectDocuments={projectDocuments} employees={employees} contracts={contracts} workPackages={workPackages} onOpenProjects={openProjects} onOpenProjectPhase={openProjectPhase} onOpenPermitApproval={openPermitApproval} onOpenSafetyIncident={openSafetyIncident} onOpenVariationOrder={openVariationOrder} onOpenProjectDocument={openProjectDocument} onOpenEmployee={openEmployee} onOpenContract={openContract} onOpenWorkPackage={openWorkPackage} selectedClientId={projectClientFilter} selectedProjectId={selectedProjectId} />
       ) : view === 'project-phases' ? (
         <ProjectPhasesPage clients={clients} projects={projects} projectPhases={projectPhases} selectedPhaseId={selectedPhaseId} onOpenProject={openProject} />
       ) : view === 'contracts' ? (
@@ -744,7 +750,7 @@ function App() {
       ) : view === 'suppliers' ? (
         <RelationshipTablePage title="Suppliers" subtitle="Maintain supplier records and their project-linked supply footprint." records={suppliers as Record<string, any>[]} titleKeys={['craft_companyname', 'craft_supplierid1', 'craft_supplierid']} projectKeys={['craft_projectid']} metaKeys={['craft_category', 'craft_statusname', 'craft_paymentterms']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
       ) : view === 'work-packages' ? (
-        <RelationshipTablePage title="Work Packages" subtitle="Monitor work-package scope, contractor, and project traceability." records={workPackages as Record<string, any>[]} titleKeys={['craft_workpackagename', 'craft_workpackageid']} projectKeys={['craft_projectid', '_craft_project_value', 'craft_projectphase']} metaKeys={['craft_contractorid', 'craft_statusname', 'craft_packagevalueaed']} projectMap={new Map(projects.map((project) => [project.craft_projectid, project]))} clientMap={new Map(clients.map((client) => [client.craft_clientid, client]))} />
+        <WorkPackagesPage projects={projects} projectPhases={projectPhases} contractors={contractors} workPackages={workPackages} selectedWorkPackageId={selectedWorkPackageId} onOpenProject={openProject} onOpenPhase={openProjectPhase} onOpenContractor={openContractor} />
       ) : (
         <EquipmentPanel records={equipment} loading={loading} onRefresh={refreshEquipment} />
       )}
